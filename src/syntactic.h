@@ -39,7 +39,6 @@ typedef enum ASTNodeKind {
   ARGS_NODE,
   ARG_LIST_NODE,
   EMPTY_NODE
-  // TODO: ... (seguir de acordo com o Livro ™)
 } ASTNodeKind;
 
 typedef enum AttributeType {
