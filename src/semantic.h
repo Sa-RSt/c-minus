@@ -42,7 +42,6 @@ typedef struct FunctionSymbol {
 
 typedef struct VarSymbol {
   DataType dataType;
-  Vector_ScopeEntry scope;
 } VarSymbol;
 
 typedef union SymbolSpec {
@@ -56,6 +55,7 @@ typedef struct Symbol {
   ASTNode *node;
   SymbolKind kind;
   SymbolSpec spec;
+  Vector_ScopeEntry scope;
   bool isParameter;
 } Symbol;
 

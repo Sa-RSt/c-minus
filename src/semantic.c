@@ -84,7 +84,7 @@ DECLARE_STRINGIFY_FUNCTION(Symbol, sym) {
   STRINGIFY_PUT_VALUE(uint32_t, sym.line);
   if (sym.kind == VAR_SYMBOL) {
     STRINGIFY_PUT(" com escopo ");
-    Vector_char repr = scopeSlashRepresentation(&sym.spec.var.scope);
+    Vector_char repr = scopeSlashRepresentation(&sym.scope);
     STRINGIFY_PUT_VALUE(Vector_char, repr);
     vecFree_char(&repr);
     STRINGIFY_PUT(": ");
@@ -177,21 +177,22 @@ static void scopePop(Vector_ScopeEntry *scope, Vector_Symbol *symTable) {
 }
 
 static bool symTablePush(Vector_ScopeEntry *scope, Vector_Symbol *symTable,
-                         Symbol sym, SemanticError *err) {
+                         Symbol *sym, SemanticError *err) {
   size_t scopeLen = vecLength_ScopeEntry(scope);
   ScopeEntry *last = vecIndex_ScopeEntry(scope, scopeLen - 1);
-  Vector_char *existing = vecLookup_Vector_char(&last->symbolNames, &sym.name);
+  Vector_char *existing = vecLookup_Vector_char(&last->symbolNames, &sym->name);
+  sym->scope = duplicateScope(scope);
   if (existing != NULL) {
     Vector_char errMsg =
         charVecFromCArray("símbolo declarado duas vezes no mesmo escopo: ");
-    Vector_char symRepr = STRINGIFY_TO_CHAR_VEC(Symbol, sym);
+    Vector_char symRepr = STRINGIFY_TO_CHAR_VEC(Symbol, *sym);
     vecExtend_char(&errMsg, &symRepr);
     CREATE_ERROR(err, charVecCreateCArray(&errMsg)); // memory leak
     vecFree_char(&symRepr);
     return false;
   }
-  vecPushRight_Vector_char(&last->symbolNames, vecDuplicate_char(&sym.name));
-  vecPushRight_Symbol(symTable, sym);
+  vecPushRight_Vector_char(&last->symbolNames, vecDuplicate_char(&sym->name));
+  vecPushRight_Symbol(symTable, *sym);
   return true;
 }
 
@@ -226,8 +227,8 @@ static bool requireIntTypeSpec(ASTNode *typeSpec, SemanticError *err) {
   return false;
 }
 
-static bool getParams(ASTNode *ast, Vector_Symbol *out, SemanticError *err,
-                      Vector_ScopeEntry *scope) {
+static bool semanticizeParams(ASTNode *ast, Vector_Symbol *out,
+                              SemanticError *err, Vector_ScopeEntry *scope) {
   Vector_ASTNode *children = getChildren(ast);
   size_t len = vecLength_ASTNode(children);
   switch (ast->kind) {
@@ -235,14 +236,14 @@ static bool getParams(ASTNode *ast, Vector_Symbol *out, SemanticError *err,
     assert(len == 0 || len == 1);
     bool ok = true;
     if (len == 1) {
-      ok = getParams(getChild(ast), out, err, scope);
+      ok = semanticizeParams(getChild(ast), out, err, scope);
     }
     return ok;
   case PARAM_LIST_NODE:
     assert(len == 1 || len == 2);
     for (size_t i = 0; i < len; i++) {
       ASTNode *child = vecIndex_ASTNode(children, i);
-      if (!getParams(child, out, err, scope))
+      if (!semanticizeParams(child, out, err, scope))
         return false;
     }
     return true;
@@ -269,7 +270,6 @@ static bool getParams(ASTNode *ast, Vector_Symbol *out, SemanticError *err,
       dt.kind = INT_ARRAY_TYPE;
     }
     sym.spec.var.dataType = dt;
-    sym.spec.var.scope = duplicateScope(scope);
     vecPushRight_Symbol(out, sym);
     return true;
   default:
@@ -310,18 +310,19 @@ static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   vecFree_char(&scopeName);
 
   Vector_Symbol parsedParams = vecCreateEmpty_Symbol();
-  if (!getParams(params, &parsedParams, err, scope))
+  if (!semanticizeParams(params, &parsedParams, err, scope))
     return false;
   sym.spec.fun.params = parsedParams;
 
-  if (!symTablePush(scope, symTable, sym, err))
+  if (!symTablePush(scope, symTable, &sym, err))
     return false;
 
   for (size_t i = 0; i < vecLength_Symbol(&parsedParams); i++) {
-    if (!symTablePush(scope, symTable, *vecIndex_Symbol(&parsedParams, i), err))
+    if (!symTablePush(scope, symTable, vecIndex_Symbol(&parsedParams, i), err))
       return false;
   }
 
+  vecFree_Symbol(&parsedParams);
   scopePop(scope, symTable);
 
   return true;
@@ -353,12 +354,11 @@ static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   Symbol sym;
   sym.name = vecDuplicate_char(&identifier->content);
   sym.line = ast->line;
-  sym.spec.var.scope = duplicateScope(scope);
   sym.spec.var.dataType = dt;
   sym.node = ast;
   sym.kind = VAR_SYMBOL;
   sym.isParameter = false;
-  vecPushRight_Symbol(symTable, sym);
+  symTablePush(scope, symTable, &sym, err);
   Attribute save;
   save.name = VAR_FUN_DECLARATION__SYMBOL;
   save.type = STRUCT_ATTRIBUTE;
