@@ -24,7 +24,7 @@ DECLARE_STRINGIFY_FUNCTION(DataType, dt);
 
 typedef struct Symbol {
   Vector_char name;
-  DataType data_type;
+  DataType dataType;
   Vector_Vector_char scope; // (ex.: ["global", "main()", "while#1"])
   uint32_t line;
 } Symbol;
@@ -32,14 +32,15 @@ typedef struct Symbol {
 DECLARE_STRINGIFY_FUNCTION(Symbol, sym);
 
 HEADER_VECTOR_TYPE(Symbol, Vector_char *)
-HEADER_VECTOR_TYPE(Vector_Symbol, Vector_char *)
+HEADER_VECTOR_TYPE(Vector_Symbol, voidp)
 
 typedef struct SemanticError {
   ERROR_TYPE_FIELDS
   ASTNode node;
+  size_t sourceLine;
 } SemanticError;
 
 HEADER_ERROR_TYPE_FUNCTIONS(SemanticError)
 
-bool semanticize(ASTNode ast, Vector_Vector_Symbol symbol_tables,
+bool semanticize(ASTNode *ast, Vector_Vector_Symbol *out_symbol_tables,
                  SemanticError *err);
