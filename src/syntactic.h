@@ -6,32 +6,32 @@
 #include "vector.h"
 #include <stdint.h>
 
-enum ASTNodeKind {
+typedef enum ASTNodeKind {
   PROGRAM_NODE,
   DECLARATION_LIST_NODE,
   DECLARATION_NODE
   // TODO: ... (seguir de acordo com o Livro ™)
-};
+} ASTNodeKind;
 
-enum AttributeType {
+typedef enum AttributeType {
   VEC_ATTRIBUTE = 0b1,
   NODE_ATTRIBUTE = 0b11,
   INTEGER_ATTRIBUTE = 0b100,
   FP_NUMBER_ATTRIBUTE = 0b110,
   POINTER_ATTRIBUTE = 0b1000,
   TEXT_ATTRIBUTE = 0b1010
-};
+} AttributeType;
 
 typedef struct Attribute Attribute;
 
 HEADER_VECTOR_TYPE(Attribute, Vector_char *)
 
-struct ASTNode {
+typedef struct ASTNode {
   Vector_char content;
   ASTNodeKind kind;
   uint32_t line;
   Vector_Attribute attributes;
-};
+} ASTNode;
 
 HEADER_VECTOR_TYPE(ASTNode, ASTNodeKind)
 HEADER_VECTOR_TYPE(int64_t, int64_t)

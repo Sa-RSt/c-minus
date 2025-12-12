@@ -8,7 +8,11 @@
 #include <stdint.h>
 #include <string.h>
 
-enum DataTypeKind { INT_ARRAY_TYPE, INT_VALUE_TYPE, VOID_TYPE };
+typedef enum DataTypeKind {
+  INT_ARRAY_TYPE,
+  INT_VALUE_TYPE,
+  VOID_TYPE
+} DataTypeKind;
 DECLARE_STRINGIFY_FUNCTION(DataTypeKind, dtk);
 
 typedef struct DataType {

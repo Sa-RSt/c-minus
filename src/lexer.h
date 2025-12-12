@@ -4,7 +4,7 @@
 #include "error.h"
 #include "vector.h"
 
-enum TokenKind {
+typedef enum TokenKind {
   KEYWORD_TOKEN,
   NUMBER_TOKEN,
   IDENTIFIER_TOKEN,
@@ -18,7 +18,7 @@ enum TokenKind {
   RIGHT_COMMENT_TOKEN,
   SEMICOLON_TOKEN,
   SPECIAL_TOKEN
-};
+} TokenKind;
 
 typedef struct Token {
   Vector_char content;
