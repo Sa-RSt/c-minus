@@ -122,7 +122,11 @@
  * */
 
 #define HEADER_VECTOR_TYPE(T, K)                                               \
-  typedef struct Vector_##T Vector_##T;                                        \
+  typedef struct Vector_##T {                                                  \
+    size_t size;                                                               \
+    size_t capacity;                                                           \
+    T *collection;                                                             \
+  } Vector_##T;                                                                \
   Vector_##T vecCreateEmpty_##T();                                             \
   size_t vecLength_##T(const Vector_##T *vec);                                 \
   size_t vecCapacity_##T(const Vector_##T *vec);                               \
@@ -156,12 +160,6 @@
   T vecDelete_##T(Vector_##T *vec, size_t index);
 
 #define DECLARE_VECTOR_TYPE(T, K, K_get, K_cmp)                                \
-  typedef struct Vector_##T {                                                  \
-    size_t size;                                                               \
-    size_t capacity;                                                           \
-    T *collection;                                                             \
-  } Vector_##T;                                                                \
-                                                                               \
   Vector_##T vecCreateEmpty_##T() {                                            \
     Vector_##T vec;                                                            \
     vec.size = vec.capacity = 0;                                               \

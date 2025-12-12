@@ -24,7 +24,7 @@ enum AttributeType {
 
 typedef struct Attribute Attribute;
 
-HEADER_VECTOR_TYPE(Attribute)
+HEADER_VECTOR_TYPE(Attribute, Vector_char *)
 
 struct ASTNode {
   Vector_char content;
@@ -33,10 +33,10 @@ struct ASTNode {
   Vector_Attribute attributes;
 };
 
-HEADER_VECTOR_TYPE(ASTNode)
-HEADER_VECTOR_TYPE(int64_t)
-HEADER_VECTOR_TYPE(double)
-HEADER_VECTOR_TYPE(voidp)
+HEADER_VECTOR_TYPE(ASTNode, ASTNodeKind)
+HEADER_VECTOR_TYPE(int64_t, int64_t)
+HEADER_VECTOR_TYPE(double, double)
+HEADER_VECTOR_TYPE(voidp, voidp)
 
 typedef union AttributeValue {
   Vector_ASTNode nodes;

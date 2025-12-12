@@ -27,8 +27,8 @@ typedef struct Symbol {
 
 DECLARE_STRINGIFY_FUNCTION(Symbol, sym);
 
-HEADER_VECTOR_TYPE(Symbol)
-HEADER_VECTOR_TYPE(Vector_Symbol)
+HEADER_VECTOR_TYPE(Symbol, Vector_char *)
+HEADER_VECTOR_TYPE(Vector_Symbol, Vector_char *)
 
 typedef struct SemanticError {
   ERROR_TYPE_FIELDS

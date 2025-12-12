@@ -33,6 +33,6 @@ typedef struct LexError {
 
 HEADER_ERROR_TYPE_FUNCTIONS(LexError)
 
-HEADER_VECTOR_TYPE(Token)
+HEADER_VECTOR_TYPE(Token, Vector_char)
 
 bool tokenize(FILE *input, Vector_Token *out, LexError *err);
