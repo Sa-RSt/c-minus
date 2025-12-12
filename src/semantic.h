@@ -19,19 +19,48 @@ typedef struct DataType {
   DataTypeKind kind;
   size_t length;
 } DataType;
-
 DECLARE_STRINGIFY_FUNCTION(DataType, dt);
+
+typedef struct ScopeEntry {
+  Vector_char name;
+  Vector_Vector_char symbolNames;
+} ScopeEntry;
+HEADER_VECTOR_TYPE(ScopeEntry, Vector_char *)
+DECLARE_STRINGIFY_FUNCTION(ScopeEntry, se);
+DECLARE_STRINGIFY_FUNCTION(Vector_ScopeEntry, vse);
+
+typedef struct Symbol Symbol;
+HEADER_VECTOR_TYPE(Symbol, Vector_char *)
+
+typedef enum SymbolKind { VAR_SYMBOL, FUN_SYMBOL } SymbolKind;
+DECLARE_STRINGIFY_FUNCTION(SymbolKind, sk);
+
+typedef struct FunctionSymbol {
+  DataTypeKind returnDataTypeKind;
+  Vector_Symbol params;
+} FunctionSymbol;
+
+typedef struct VarSymbol {
+  DataType dataType;
+  Vector_ScopeEntry scope;
+} VarSymbol;
+
+typedef union SymbolSpec {
+  FunctionSymbol fun;
+  VarSymbol var;
+} SymbolSpec;
 
 typedef struct Symbol {
   Vector_char name;
-  DataType dataType;
-  Vector_Vector_char scope; // (ex.: ["global", "main()", "while#1"])
   uint32_t line;
+  ASTNode *node;
+  SymbolKind kind;
+  SymbolSpec spec;
+  bool isParameter;
 } Symbol;
 
 DECLARE_STRINGIFY_FUNCTION(Symbol, sym);
 
-HEADER_VECTOR_TYPE(Symbol, Vector_char *)
 HEADER_VECTOR_TYPE(Vector_Symbol, voidp)
 
 typedef struct SemanticError {
