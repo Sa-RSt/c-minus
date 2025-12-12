@@ -328,7 +328,7 @@ static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
 }
 
 static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
-                                      Vector_Vector_char *scope,
+                                      Vector_ScopeEntry *scope,
                                       SemanticError *err) {
   assert(ast->kind == VAR_DECLARATION_NODE);
 
@@ -371,7 +371,7 @@ static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
 }
 
 static bool semanticizeDeclaration(ASTNode *ast, Vector_Symbol *symTable,
-                                   Vector_Vector_char *scope,
+                                   Vector_ScopeEntry *scope,
                                    SemanticError *err) {
   assert(ast->kind == DECLARATION_NODE);
 
@@ -388,7 +388,7 @@ static bool semanticizeDeclaration(ASTNode *ast, Vector_Symbol *symTable,
 }
 
 static bool semanticizeDeclarationList(ASTNode *ast, Vector_Symbol *symTable,
-                                       Vector_Vector_char *scope,
+                                       Vector_ScopeEntry *scope,
                                        SemanticError *err) {
   assert(ast->kind == DECLARATION_LIST_NODE);
   Vector_ASTNode *declarations = getChildren(ast);
@@ -420,7 +420,9 @@ bool semanticize(ASTNode *ast, Vector_Vector_Symbol *outSymbolTables,
   ASTNode *childNode = getChild(ast);
   Vector_Symbol programSymbolTable = vecCreateEmpty_Symbol();
   Vector_char strGlobal = charVecFromCArray("global");
-  Vector_Vector_char scope = vecCreateSingle_Vector_char(strGlobal);
+  Vector_ScopeEntry scope = vecCreateEmpty_ScopeEntry();
+  scopePush(&scope, &strGlobal);
+  vecFree_char(&strGlobal);
 
   return semanticizeDeclarationList(childNode, &programSymbolTable, &scope,
                                     err);
