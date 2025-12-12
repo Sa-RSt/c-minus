@@ -54,15 +54,17 @@ typedef enum AttributeType {
 typedef struct Attribute Attribute;
 
 HEADER_VECTOR_TYPE(Attribute, Vector_char *)
+typedef struct ASTNode ASTNode;
+HEADER_VECTOR_TYPE(ASTNode, ASTNodeKind)
 
 typedef struct ASTNode {
   Vector_char content;
   ASTNodeKind kind;
   uint32_t line;
   Vector_Attribute attributes;
+  Vector_ASTNode children;
 } ASTNode;
 
-HEADER_VECTOR_TYPE(ASTNode, ASTNodeKind)
 HEADER_VECTOR_TYPE(int64_t, int64_t)
 HEADER_VECTOR_TYPE(double, double)
 HEADER_VECTOR_TYPE(voidp, voidp)
