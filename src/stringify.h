@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#define STATIC_STRINGIFY_BUFFER_SIZE 524288
+
+extern char staticStringifyBuffer[STATIC_STRINGIFY_BUFFER_SIZE];
+
 #define STRINGIFY_FUNCTION(T) stringify_##T
 
 #define STRINGIFY_VALUE(T, value, out) STRINGIFY_FUNCTION(T)(value, out)
@@ -21,9 +25,9 @@
 
 #define STRINGIFY_DBG(T, value)                                                \
   do {                                                                         \
-    char stringify_debug_buffer[65536] = {0};                                  \
-    STRINGIFY_VALUE(T, value, stringify_debug_buffer);                         \
-    puts(stringify_debug_buffer);                                              \
+    staticStringifyBuffer[0] = 0;                                              \
+    STRINGIFY_VALUE(T, value, staticStringifyBuffer);                          \
+    puts(staticStringifyBuffer);                                               \
   } while (0)
 
 DECLARE_STRINGIFY_FUNCTION(charp, s);

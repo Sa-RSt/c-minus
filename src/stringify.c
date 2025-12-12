@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+char staticStringifyBuffer[STATIC_STRINGIFY_BUFFER_SIZE];
+
 DECLARE_STRINGIFY_FUNCTION(charp, s) { STRINGIFY_PUT(s); }
 
 DECLARE_STRINGIFY_FUNCTION(size_t, n) {
