@@ -18,6 +18,8 @@ typedef enum ASTNodeKind {
   PARAMS_NODE,
   PARAM_LIST_NODE,
   PARAM_NODE,
+  EMPTY_SQR_BRACKETS_NODE, // corresponde a "[]", necessário para declarar
+                           // parâmetros
   COMPOUND_STMT_NODE,
   LOCAL_DECLARATIONS_NODE,
   STATEMENT_LIST_NODE,
