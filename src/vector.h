@@ -157,7 +157,8 @@
   T vecPopRight_##T(Vector_##T *vec);                                          \
   void vecPushLeft_##T(Vector_##T *vec, T item);                               \
   void vecPushRight_##T(Vector_##T *vec, T item);                              \
-  T vecDelete_##T(Vector_##T *vec, size_t index);
+  T vecDelete_##T(Vector_##T *vec, size_t index);                              \
+  Vector_##T vecCreateSingle_##T(T item);
 
 #define DECLARE_VECTOR_TYPE(T, K, K_get, K_cmp)                                \
   Vector_##T vecCreateEmpty_##T() {                                            \
@@ -297,8 +298,9 @@
                                                                                \
   T *vecTake_##T(Vector_##T *vec, size_t *out_size) {                          \
     T *ret = vec->collection;                                                  \
-    assert(out_size != NULL);                                                  \
-    *out_size = vec->size;                                                     \
+    if (out_size != NULL) {                                                    \
+      *out_size = vec->size;                                                   \
+    }                                                                          \
     vec->size = vec->capacity = 0;                                             \
     vec->collection = NULL;                                                    \
     return ret;                                                                \
@@ -327,7 +329,9 @@
   }                                                                            \
                                                                                \
   const T *vecBorrow_##T(const Vector_##T *vec, size_t *out_size) {            \
-    *out_size = vec->size;                                                     \
+    if (out_size != NULL) {                                                    \
+      *out_size = vec->size;                                                   \
+    }                                                                          \
     return vec->collection;                                                    \
   }                                                                            \
                                                                                \
@@ -344,6 +348,12 @@
   Vector_##T vecCreateWithCapacity_##T(size_t capacity) {                      \
     Vector_##T vec = vecCreateEmpty_##T();                                     \
     vecGrow_##T(&vec, capacity);                                               \
+    return vec;                                                                \
+  }                                                                            \
+                                                                               \
+  Vector_##T vecCreateSingle_##T(T item) {                                     \
+    Vector_##T vec = vecCreateEmpty_##T();                                     \
+    vecPushRight_##T(&vec, item);                                              \
     return vec;                                                                \
   }                                                                            \
                                                                                \
