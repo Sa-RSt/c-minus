@@ -102,4 +102,6 @@ DECLARE_STRINGIFY_FUNCTION(Vector_char, str) {
 }
 
 #define GETSELFPTR(x) (&x)
+#define DIFF(x, y) (x - y)
 DECLARE_VECTOR_TYPE(Vector_char, Vector_char *, GETSELFPTR, charVecStrcmp)
+DECLARE_VECTOR_STRINGIFY_FUNCTION(Vector_char)
