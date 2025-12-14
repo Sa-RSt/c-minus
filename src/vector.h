@@ -119,6 +119,34 @@
  * pronto para uso.
  *
  * void vecClear_TIPO(Vector_TIPO *vec);
+ * Remove todos os elementos do vetor sem afetar sua capacidade.
+ *
+ * Vector_TIPO vecCreateSingle_TIPO(TIPO v);
+ * Cria um vetor e o inicializa com um elemento.
+ *
+ * TIPO *vecTake_TIPO(Vector_TIPO *vec, size_t *out);
+ * Tira e retorna o ponteiro para os elementos contidos no vetor, opcionalmente
+ * retornando também o tamanho do vetor pelo parâmetro `out`. Após a execução
+ * dessa função, o vetor não terá mais nenhuma coleção de itens associada a ele,
+ * e se comportará como um vetor não inicializado. Portanto, a responsabilidade
+ * de dar free no bloco de memória passa a ser de quem chamou essa função.
+ *
+ * const TIPO *vecBorrow_TIPO(Vector_TIPO *vec, size_t *out);
+ * Retorna um ponteiro "somente leitura" para o conteúdo do vetor.
+ *
+ * Vector_TIPO vecDuplicate_TIPO(Vector_TIPO *vec);
+ * Cria e retorna uma shallow copy do vetor.
+ *
+ * TIPO *vecTakeCopy_TIPO(Vector_TIPO *vec, size_t *out);
+ * Faz uma shallow copy do conteúdo do vetor e a retorna como um ponteiro na
+ * heap. Chamar free() nesse novo ponteiro é responsabilidade de quem chamou
+ * essa função.
+ *
+ * void vecExtend_TIPO(Vector_TIPO *dest, Vector_TIPO *src);
+ * Concatena cópias dos elementos de `src` no final do vetor `dest`.
+ *
+ * void vecSwap_TIPO(Vector_TIPO *a, Vector_TIPO *b);
+ * Troca os conteúdos de dois vetores entre si.
  * */
 
 #define HEADER_VECTOR_TYPE(T, K)                                               \
@@ -352,7 +380,7 @@
   }                                                                            \
                                                                                \
   Vector_##T vecCreateSingle_##T(T item) {                                     \
-    Vector_##T vec = vecCreateEmpty_##T();                                     \
+    Vector_##T vec = vecCreateWithCapacity_##T(1);                             \
     vecPushRight_##T(&vec, item);                                              \
     return vec;                                                                \
   }                                                                            \
@@ -369,10 +397,8 @@
     STRINGIFY_PUT(#T);                                                         \
     STRINGIFY_PUT(">: {");                                                     \
     for (size_t i = 0; i < vec.size; i++) {                                    \
-      if (i != 0) {                                                            \
-        STRINGIFY_PUT("; ");                                                   \
-      }                                                                        \
+      STRINGIFY_PUT("\n  ");                                                   \
       STRINGIFY_PUT_VALUE(T, vec.collection[i]);                               \
     }                                                                          \
-    STRINGIFY_PUT("}");                                                        \
+    STRINGIFY_PUT("\n}");                                                      \
   }
