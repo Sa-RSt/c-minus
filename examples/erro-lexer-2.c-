@@ -1,0 +1,11 @@
+int identifelsewhile;
+int ifelsewhileident;
+
+/*
+1while (1) {
+  output(3);
+}*/
+
+1while (1) {
+  output(3);
+}

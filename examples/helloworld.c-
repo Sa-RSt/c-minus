@@ -1,0 +1,17 @@
+int amigo;
+int idade;
+/* olá amogo */
+
+void main() {
+  amigo = 43;
+  idade = input();
+  if (amigo < 69) {
+      output(amigo);
+    } else {
+        output(33333);
+      }
+  if (idade >= 18) {
+      output(18);
+    }
+}
+
