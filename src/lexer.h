@@ -17,7 +17,8 @@ typedef enum TokenKind {
   LEFT_COMMENT_TOKEN,
   RIGHT_COMMENT_TOKEN,
   SEMICOLON_TOKEN,
-  SPECIAL_TOKEN
+  SPECIAL_TOKEN,
+  COMMA_TOKEN
 } TokenKind;
 
 typedef struct Token {
@@ -33,6 +34,10 @@ typedef struct LexError {
 
 HEADER_ERROR_TYPE_FUNCTIONS(LexError)
 
-HEADER_VECTOR_TYPE(Token, Vector_char)
+HEADER_VECTOR_TYPE(Token, Vector_char *)
+
+DECLARE_STRINGIFY_FUNCTION(TokenKind, tk);
+DECLARE_STRINGIFY_FUNCTION(Token, tok);
+DECLARE_STRINGIFY_FUNCTION(Vector_Token, vtok);
 
 bool tokenize(FILE *input, Vector_Token *out, LexError *err);
