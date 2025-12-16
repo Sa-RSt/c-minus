@@ -74,6 +74,9 @@ Vector_char charVecNormWhitespace(Vector_char *src) {
 
 static int _lenStrcmp(const char *left, const char *right, size_t left_len,
                       size_t right_len) {
+  if(left_len == 0 && right_len == 0) {
+    return 0;
+  }
   if (left_len == 0) {
     return 1;
   }

@@ -55,7 +55,7 @@ typedef enum AttributeType {
 
 typedef struct Attribute Attribute;
 
-HEADER_VECTOR_TYPE(Attribute, Vector_char *)
+HEADER_VECTOR_TYPE(Attribute, Vector_char)
 typedef struct ASTNode ASTNode;
 HEADER_VECTOR_TYPE(ASTNode, ASTNodeKind)
 
@@ -100,4 +100,5 @@ typedef struct SyntaxError {
 
 HEADER_ERROR_TYPE_FUNCTIONS(SyntaxError)
 
+void printASTTree(const ASTNode *node, int indent);
 bool generateAST(Vector_Token tokens, ASTNode *out, SyntaxError *err);

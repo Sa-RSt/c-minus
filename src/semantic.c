@@ -50,6 +50,9 @@ Vector_char scopeSlashRepresentation(const Vector_ScopeEntry *scope) {
   return res;
 }
 
+#define SE_NAME_GETTER(x) (&x.name)
+DECLARE_VECTOR_TYPE(ScopeEntry, Vector_char *, SE_NAME_GETTER, charVecStrcmp)
+
 DECLARE_STRINGIFY_FUNCTION(ScopeEntry, se) {
   STRINGIFY_PUT("ScopeEntry(name = ");
   STRINGIFY_PUT_VALUE(Vector_char, se.name);

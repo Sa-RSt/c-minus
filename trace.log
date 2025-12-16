@@ -1,0 +1,285 @@
+[SYN][program-start] pos=0 kind=0 line=1 text="int"
+[SYN][node-create] kind=0 line=1
+[SYN][decl-list-start] pos=0 kind=0 line=1 text="int"
+[SYN][node-create] kind=1 line=1
+[SYN][decl-start] pos=0 kind=0 line=1 text="int"
+[SYN][type-spec] pos=0 kind=0 line=1 text="int"
+[SYN][advance] pos=0->1 kind=0 line=1 text="int"
+[SYN][node-create] kind=5 line=1
+[SYN][advance] pos=1->2 kind=2 line=1 text="amigo"
+[SYN][decl-var] pos=2 kind=11 line=1 text=";"
+[SYN][var-decl] pos=2 kind=11 line=1 text=";"
+[SYN][node-create] kind=3 line=1
+[SYN][node-create] kind=6 line=1
+[SYN][advance] pos=2->3 kind=11 line=1 text=";"
+[SYN][decl-start] pos=3 kind=0 line=2 text="int"
+[SYN][type-spec] pos=3 kind=0 line=2 text="int"
+[SYN][advance] pos=3->4 kind=0 line=2 text="int"
+[SYN][node-create] kind=5 line=2
+[SYN][advance] pos=4->5 kind=2 line=2 text="idade"
+[SYN][decl-var] pos=5 kind=11 line=2 text=";"
+[SYN][var-decl] pos=5 kind=11 line=2 text=";"
+[SYN][node-create] kind=3 line=2
+[SYN][node-create] kind=6 line=2
+[SYN][advance] pos=5->6 kind=11 line=2 text=";"
+[SYN][decl-start] pos=6 kind=0 line=5 text="void"
+[SYN][type-spec] pos=6 kind=0 line=5 text="void"
+[SYN][advance] pos=6->7 kind=0 line=5 text="void"
+[SYN][node-create] kind=5 line=5
+[SYN][advance] pos=7->8 kind=2 line=5 text="main"
+[SYN][decl-fun] pos=8 kind=3 line=5 text="("
+[SYN][fun-decl] pos=8 kind=3 line=5 text="("
+[SYN][node-create] kind=4 line=5
+[SYN][node-create] kind=6 line=5
+[SYN][advance] pos=8->9 kind=3 line=5 text="("
+[SYN][params] pos=9 kind=0 line=5 text="void"
+[SYN][node-create] kind=8 line=5
+[SYN][advance] pos=9->10 kind=0 line=5 text="void"
+[SYN][node-create] kind=5 line=5
+[SYN][advance] pos=10->11 kind=4 line=5 text=")"
+[SYN][compound] pos=11 kind=7 line=5 text="{"
+[SYN][advance] pos=11->12 kind=7 line=5 text="{"
+[SYN][node-create] kind=12 line=5
+[SYN][local-decls] pos=12 kind=2 line=6 text="amigo"
+[SYN][node-create] kind=13 line=6
+[SYN][stmt-list] pos=12 kind=2 line=6 text="amigo"
+[SYN][node-create] kind=14 line=6
+[SYN][stmt] pos=12 kind=2 line=6 text="amigo"
+[SYN][expr-stmt] pos=12 kind=2 line=6 text="amigo"
+[SYN][node-create] kind=16 line=6
+[SYN][expr] pos=12 kind=2 line=6 text="amigo"
+[SYN][var] pos=12 kind=2 line=6 text="amigo"
+[SYN][advance] pos=12->13 kind=2 line=6 text="amigo"
+[SYN][node-create] kind=21 line=6
+[SYN][node-create] kind=6 line=6
+[SYN][advance] pos=13->14 kind=12 line=6 text="="
+[SYN][node-create] kind=20 line=6
+[SYN][expr] pos=14 kind=1 line=6 text="43"
+[SYN][simple-expr] pos=14 kind=1 line=6 text="43"
+[SYN][add-expr] pos=14 kind=1 line=6 text="43"
+[SYN][term] pos=14 kind=1 line=6 text="43"
+[SYN][factor] pos=14 kind=1 line=6 text="43"
+[SYN][node-create] kind=28 line=6
+[SYN][advance] pos=14->15 kind=1 line=6 text="43"
+[SYN][node-create] kind=7 line=6
+[SYN][advance] pos=15->16 kind=11 line=6 text=";"
+[SYN][stmt] pos=16 kind=2 line=7 text="idade"
+[SYN][expr-stmt] pos=16 kind=2 line=7 text="idade"
+[SYN][node-create] kind=16 line=7
+[SYN][expr] pos=16 kind=2 line=7 text="idade"
+[SYN][var] pos=16 kind=2 line=7 text="idade"
+[SYN][advance] pos=16->17 kind=2 line=7 text="idade"
+[SYN][node-create] kind=21 line=7
+[SYN][node-create] kind=6 line=7
+[SYN][advance] pos=17->18 kind=12 line=7 text="="
+[SYN][node-create] kind=20 line=7
+[SYN][expr] pos=18 kind=2 line=7 text="input"
+[SYN][var] pos=18 kind=2 line=7 text="input"
+[SYN][advance] pos=18->19 kind=2 line=7 text="input"
+[SYN][node-create] kind=21 line=7
+[SYN][node-create] kind=6 line=7
+[SYN][simple-expr] pos=18 kind=2 line=7 text="input"
+[SYN][add-expr] pos=18 kind=2 line=7 text="input"
+[SYN][term] pos=18 kind=2 line=7 text="input"
+[SYN][factor] pos=18 kind=2 line=7 text="input"
+[SYN][node-create] kind=28 line=7
+[SYN][advance] pos=18->19 kind=2 line=7 text="input"
+[SYN][call] pos=19 kind=3 line=7 text="("
+[SYN][node-create] kind=29 line=7
+[SYN][node-create] kind=6 line=7
+[SYN][advance] pos=19->20 kind=3 line=7 text="("
+[SYN][args] pos=20 kind=4 line=7 text=")"
+[SYN][node-create] kind=30 line=7
+[SYN][advance] pos=20->21 kind=4 line=7 text=")"
+[SYN][advance] pos=21->22 kind=11 line=7 text=";"
+[SYN][stmt] pos=22 kind=0 line=8 text="if"
+[SYN][if-stmt] pos=22 kind=0 line=8 text="if"
+[SYN][advance] pos=22->23 kind=0 line=8 text="if"
+[SYN][advance] pos=23->24 kind=3 line=8 text="("
+[SYN][node-create] kind=17 line=8
+[SYN][expr] pos=24 kind=2 line=8 text="amigo"
+[SYN][var] pos=24 kind=2 line=8 text="amigo"
+[SYN][advance] pos=24->25 kind=2 line=8 text="amigo"
+[SYN][node-create] kind=21 line=8
+[SYN][node-create] kind=6 line=8
+[SYN][simple-expr] pos=24 kind=2 line=8 text="amigo"
+[SYN][add-expr] pos=24 kind=2 line=8 text="amigo"
+[SYN][term] pos=24 kind=2 line=8 text="amigo"
+[SYN][factor] pos=24 kind=2 line=8 text="amigo"
+[SYN][node-create] kind=28 line=8
+[SYN][var] pos=24 kind=2 line=8 text="amigo"
+[SYN][advance] pos=24->25 kind=2 line=8 text="amigo"
+[SYN][node-create] kind=21 line=8
+[SYN][node-create] kind=6 line=8
+[SYN][advance] pos=25->26 kind=12 line=8 text="<"
+[SYN][node-create] kind=22 line=8
+[SYN][node-create] kind=24 line=8
+[SYN][add-expr] pos=26 kind=1 line=8 text="69"
+[SYN][term] pos=26 kind=1 line=8 text="69"
+[SYN][factor] pos=26 kind=1 line=8 text="69"
+[SYN][node-create] kind=28 line=8
+[SYN][advance] pos=26->27 kind=1 line=8 text="69"
+[SYN][node-create] kind=7 line=8
+[SYN][advance] pos=27->28 kind=4 line=8 text=")"
+[SYN][stmt] pos=28 kind=7 line=8 text="{"
+[SYN][compound] pos=28 kind=7 line=8 text="{"
+[SYN][advance] pos=28->29 kind=7 line=8 text="{"
+[SYN][node-create] kind=12 line=8
+[SYN][local-decls] pos=29 kind=2 line=9 text="output"
+[SYN][node-create] kind=13 line=9
+[SYN][stmt-list] pos=29 kind=2 line=9 text="output"
+[SYN][node-create] kind=14 line=9
+[SYN][stmt] pos=29 kind=2 line=9 text="output"
+[SYN][expr-stmt] pos=29 kind=2 line=9 text="output"
+[SYN][node-create] kind=16 line=9
+[SYN][expr] pos=29 kind=2 line=9 text="output"
+[SYN][var] pos=29 kind=2 line=9 text="output"
+[SYN][advance] pos=29->30 kind=2 line=9 text="output"
+[SYN][node-create] kind=21 line=9
+[SYN][node-create] kind=6 line=9
+[SYN][simple-expr] pos=29 kind=2 line=9 text="output"
+[SYN][add-expr] pos=29 kind=2 line=9 text="output"
+[SYN][term] pos=29 kind=2 line=9 text="output"
+[SYN][factor] pos=29 kind=2 line=9 text="output"
+[SYN][node-create] kind=28 line=9
+[SYN][advance] pos=29->30 kind=2 line=9 text="output"
+[SYN][call] pos=30 kind=3 line=9 text="("
+[SYN][node-create] kind=29 line=9
+[SYN][node-create] kind=6 line=9
+[SYN][advance] pos=30->31 kind=3 line=9 text="("
+[SYN][args] pos=31 kind=2 line=9 text="amigo"
+[SYN][node-create] kind=30 line=9
+[SYN][arg-list] pos=31 kind=2 line=9 text="amigo"
+[SYN][node-create] kind=31 line=9
+[SYN][expr] pos=31 kind=2 line=9 text="amigo"
+[SYN][var] pos=31 kind=2 line=9 text="amigo"
+[SYN][advance] pos=31->32 kind=2 line=9 text="amigo"
+[SYN][node-create] kind=21 line=9
+[SYN][node-create] kind=6 line=9
+[SYN][simple-expr] pos=31 kind=2 line=9 text="amigo"
+[SYN][add-expr] pos=31 kind=2 line=9 text="amigo"
+[SYN][term] pos=31 kind=2 line=9 text="amigo"
+[SYN][factor] pos=31 kind=2 line=9 text="amigo"
+[SYN][node-create] kind=28 line=9
+[SYN][var] pos=31 kind=2 line=9 text="amigo"
+[SYN][advance] pos=31->32 kind=2 line=9 text="amigo"
+[SYN][node-create] kind=21 line=9
+[SYN][node-create] kind=6 line=9
+[SYN][advance] pos=32->33 kind=4 line=9 text=")"
+[SYN][advance] pos=33->34 kind=11 line=9 text=";"
+[SYN][advance] pos=34->35 kind=8 line=10 text="}"
+[SYN][advance] pos=35->36 kind=0 line=10 text="else"
+[SYN][stmt] pos=36 kind=7 line=10 text="{"
+[SYN][compound] pos=36 kind=7 line=10 text="{"
+[SYN][advance] pos=36->37 kind=7 line=10 text="{"
+[SYN][node-create] kind=12 line=10
+[SYN][local-decls] pos=37 kind=2 line=11 text="output"
+[SYN][node-create] kind=13 line=11
+[SYN][stmt-list] pos=37 kind=2 line=11 text="output"
+[SYN][node-create] kind=14 line=11
+[SYN][stmt] pos=37 kind=2 line=11 text="output"
+[SYN][expr-stmt] pos=37 kind=2 line=11 text="output"
+[SYN][node-create] kind=16 line=11
+[SYN][expr] pos=37 kind=2 line=11 text="output"
+[SYN][var] pos=37 kind=2 line=11 text="output"
+[SYN][advance] pos=37->38 kind=2 line=11 text="output"
+[SYN][node-create] kind=21 line=11
+[SYN][node-create] kind=6 line=11
+[SYN][simple-expr] pos=37 kind=2 line=11 text="output"
+[SYN][add-expr] pos=37 kind=2 line=11 text="output"
+[SYN][term] pos=37 kind=2 line=11 text="output"
+[SYN][factor] pos=37 kind=2 line=11 text="output"
+[SYN][node-create] kind=28 line=11
+[SYN][advance] pos=37->38 kind=2 line=11 text="output"
+[SYN][call] pos=38 kind=3 line=11 text="("
+[SYN][node-create] kind=29 line=11
+[SYN][node-create] kind=6 line=11
+[SYN][advance] pos=38->39 kind=3 line=11 text="("
+[SYN][args] pos=39 kind=1 line=11 text="33333"
+[SYN][node-create] kind=30 line=11
+[SYN][arg-list] pos=39 kind=1 line=11 text="33333"
+[SYN][node-create] kind=31 line=11
+[SYN][expr] pos=39 kind=1 line=11 text="33333"
+[SYN][simple-expr] pos=39 kind=1 line=11 text="33333"
+[SYN][add-expr] pos=39 kind=1 line=11 text="33333"
+[SYN][term] pos=39 kind=1 line=11 text="33333"
+[SYN][factor] pos=39 kind=1 line=11 text="33333"
+[SYN][node-create] kind=28 line=11
+[SYN][advance] pos=39->40 kind=1 line=11 text="33333"
+[SYN][node-create] kind=7 line=11
+[SYN][advance] pos=40->41 kind=4 line=11 text=")"
+[SYN][advance] pos=41->42 kind=11 line=11 text=";"
+[SYN][advance] pos=42->43 kind=8 line=12 text="}"
+[SYN][stmt] pos=43 kind=0 line=13 text="if"
+[SYN][if-stmt] pos=43 kind=0 line=13 text="if"
+[SYN][advance] pos=43->44 kind=0 line=13 text="if"
+[SYN][advance] pos=44->45 kind=3 line=13 text="("
+[SYN][node-create] kind=17 line=13
+[SYN][expr] pos=45 kind=2 line=13 text="idade"
+[SYN][var] pos=45 kind=2 line=13 text="idade"
+[SYN][advance] pos=45->46 kind=2 line=13 text="idade"
+[SYN][node-create] kind=21 line=13
+[SYN][node-create] kind=6 line=13
+[SYN][simple-expr] pos=45 kind=2 line=13 text="idade"
+[SYN][add-expr] pos=45 kind=2 line=13 text="idade"
+[SYN][term] pos=45 kind=2 line=13 text="idade"
+[SYN][factor] pos=45 kind=2 line=13 text="idade"
+[SYN][node-create] kind=28 line=13
+[SYN][var] pos=45 kind=2 line=13 text="idade"
+[SYN][advance] pos=45->46 kind=2 line=13 text="idade"
+[SYN][node-create] kind=21 line=13
+[SYN][node-create] kind=6 line=13
+[SYN][advance] pos=46->47 kind=12 line=13 text=">="
+[SYN][node-create] kind=22 line=13
+[SYN][node-create] kind=24 line=13
+[SYN][add-expr] pos=47 kind=1 line=13 text="18"
+[SYN][term] pos=47 kind=1 line=13 text="18"
+[SYN][factor] pos=47 kind=1 line=13 text="18"
+[SYN][node-create] kind=28 line=13
+[SYN][advance] pos=47->48 kind=1 line=13 text="18"
+[SYN][node-create] kind=7 line=13
+[SYN][advance] pos=48->49 kind=4 line=13 text=")"
+[SYN][stmt] pos=49 kind=7 line=13 text="{"
+[SYN][compound] pos=49 kind=7 line=13 text="{"
+[SYN][advance] pos=49->50 kind=7 line=13 text="{"
+[SYN][node-create] kind=12 line=13
+[SYN][local-decls] pos=50 kind=2 line=14 text="output"
+[SYN][node-create] kind=13 line=14
+[SYN][stmt-list] pos=50 kind=2 line=14 text="output"
+[SYN][node-create] kind=14 line=14
+[SYN][stmt] pos=50 kind=2 line=14 text="output"
+[SYN][expr-stmt] pos=50 kind=2 line=14 text="output"
+[SYN][node-create] kind=16 line=14
+[SYN][expr] pos=50 kind=2 line=14 text="output"
+[SYN][var] pos=50 kind=2 line=14 text="output"
+[SYN][advance] pos=50->51 kind=2 line=14 text="output"
+[SYN][node-create] kind=21 line=14
+[SYN][node-create] kind=6 line=14
+[SYN][simple-expr] pos=50 kind=2 line=14 text="output"
+[SYN][add-expr] pos=50 kind=2 line=14 text="output"
+[SYN][term] pos=50 kind=2 line=14 text="output"
+[SYN][factor] pos=50 kind=2 line=14 text="output"
+[SYN][node-create] kind=28 line=14
+[SYN][advance] pos=50->51 kind=2 line=14 text="output"
+[SYN][call] pos=51 kind=3 line=14 text="("
+[SYN][node-create] kind=29 line=14
+[SYN][node-create] kind=6 line=14
+[SYN][advance] pos=51->52 kind=3 line=14 text="("
+[SYN][args] pos=52 kind=1 line=14 text="18"
+[SYN][node-create] kind=30 line=14
+[SYN][arg-list] pos=52 kind=1 line=14 text="18"
+[SYN][node-create] kind=31 line=14
+[SYN][expr] pos=52 kind=1 line=14 text="18"
+[SYN][simple-expr] pos=52 kind=1 line=14 text="18"
+[SYN][add-expr] pos=52 kind=1 line=14 text="18"
+[SYN][term] pos=52 kind=1 line=14 text="18"
+[SYN][factor] pos=52 kind=1 line=14 text="18"
+[SYN][node-create] kind=28 line=14
+[SYN][advance] pos=52->53 kind=1 line=14 text="18"
+[SYN][node-create] kind=7 line=14
+[SYN][advance] pos=53->54 kind=4 line=14 text=")"
+[SYN][advance] pos=54->55 kind=11 line=14 text=";"
+[SYN][advance] pos=55->56 kind=8 line=15 text="}"
+[SYN][advance] pos=56->57 kind=8 line=16 text="}"
+[SYN][decl-list-end] pos=57 <eof>
+[SYN][program-end] pos=57 <eof>

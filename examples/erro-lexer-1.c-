@@ -1,0 +1,4 @@
+elseif voidfuncao123() {
+  int b;
+  output(b);
+}
