@@ -26,6 +26,7 @@ GCC_OPTIONS = [
     "-Wconversion",
     "-O2",
     "-lfl",
+    "-ggdb",
 ]
 
 OUTPUT_BINARY = "c-c"

@@ -11,8 +11,14 @@
 DECLARE_VECTOR_TYPE(char, char, GETSELF, CHARCMP)
 
 char *charVecCreateCArray(const Vector_char *str) {
+  if (str == NULL || str->collection == NULL) {
+    char *m = malloc(1);
+    *m = 0;
+    return m;
+  }
   const size_t len = vecLength_char(str);
-  char *c = (char *)malloc(+1);
+  char *c = (char *)malloc(len + 1);
+  assert(c != NULL);
   for (size_t i = 0; i < len; i++) {
     c[i] = *vecIndex_char(str, i);
   }
@@ -27,7 +33,6 @@ Vector_char charVecFromCArray(const char *arr) {
 void charVecAppendCArray(Vector_char *dest, const char *src) {
   Vector_char temp = charVecFromCArray(src);
   vecExtend_char(dest, &temp);
-  vecFree_char(&temp);
 }
 
 Vector_char charVecStripWhitespace(const Vector_char *src) {
@@ -48,33 +53,9 @@ Vector_char charVecStripWhitespace(const Vector_char *src) {
   return ret;
 }
 
-Vector_char charVecNormWhitespace(Vector_char *src) {
-  Vector_char ret = vecCreateWithCapacity_char(vecLength_char(src));
-
-  bool echoing = true;
-
-  for (size_t i = 0; i < vecLength_char(src); i++) {
-    char c = *vecIndex_char(src, i);
-    if (echoing) {
-      if (isspace(c)) {
-        c = ' ';
-        echoing = false;
-      }
-      vecPushRight_char(&ret, c);
-    } else {
-      if (!isspace(c)) {
-        vecPushRight_char(&ret, c);
-        echoing = true;
-      }
-    }
-  }
-
-  return ret;
-}
-
 static int _lenStrcmp(const char *left, const char *right, size_t left_len,
                       size_t right_len) {
-  if(left_len == 0 && right_len == 0) {
+  if (left_len == 0 && right_len == 0) {
     return 0;
   }
   if (left_len == 0) {
@@ -99,6 +80,8 @@ int charVecStrcmp(const Vector_char *left, const Vector_char *right) {
 }
 
 DECLARE_STRINGIFY_FUNCTION(Vector_char, str) {
+  if (str.size == 0)
+    return;
   char *p = charVecCreateCArray(&str);
   STRINGIFY_PUT(p);
   free(p);

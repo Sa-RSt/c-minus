@@ -244,7 +244,8 @@
                                                                                \
   T *vecSearch_##T(const Vector_##T *vec, K key, size_t start, int64_t step) { \
     int64_t position = (int64_t)start;                                         \
-    assert(vec->collection != NULL);                                           \
+    if (vec->collection == NULL)                                               \
+      return NULL;                                                             \
     while (K_cmp(key, K_get(vec->collection[position]))) {                     \
       position += step;                                                        \
       if (position < 0 || position >= (int64_t)vec->size) {                    \
@@ -335,6 +336,8 @@
   }                                                                            \
                                                                                \
   void vecExtend_##T(Vector_##T *dest, const Vector_##T *src) {                \
+    if (src->size == 0)                                                        \
+      return;                                                                  \
     size_t new_size = dest->size + src->size;                                  \
     vecGrow_##T(dest, dest->size + src->size);                                 \
     T *sourcePtr = src->collection;                                            \

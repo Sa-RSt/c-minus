@@ -3,6 +3,7 @@
 #include "char_vector.h"
 #include "error.h"
 #include "lexer.h"
+#include "stringify.h"
 #include "vector.h"
 #include <stdint.h>
 
@@ -99,6 +100,8 @@ typedef struct SyntaxError {
 } SyntaxError;
 
 HEADER_ERROR_TYPE_FUNCTIONS(SyntaxError)
+
+DECLARE_STRINGIFY_FUNCTION(ASTNode, n);
 
 void printASTTree(const ASTNode *node, int indent);
 bool generateAST(Vector_Token tokens, ASTNode *out, SyntaxError *err);
