@@ -67,7 +67,7 @@ def gcc():
 
 
 def main():
-    shutil.rmtree(dist_dir)
+    shutil.rmtree(dist_dir, ignore_errors=True)
     dist_dir.mkdir()
     fast_lex()
     gcc()
