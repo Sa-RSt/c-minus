@@ -2,7 +2,7 @@ int amigo;
 int idade;
 /* olá amogo */
 
-void main() {
+void main(void) {
   amigo = 43;
   idade = input();
   if (amigo < 69) {
