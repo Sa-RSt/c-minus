@@ -230,6 +230,125 @@ static bool requireIntTypeSpec(ASTNode *typeSpec, SemanticError *err) {
   return false;
 }
 
+static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
+                                      Vector_ScopeEntry *scope,
+                                      SemanticError *err);
+
+static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
+                                    SemanticError *err,
+                                    Vector_ScopeEntry *scope);
+
+static bool semanticizeLocalDeclarations(ASTNode *ast, Vector_Symbol *symTable,
+                                         SemanticError *err,
+                                         Vector_ScopeEntry *scope) {
+  Vector_ASTNode *children = getChildren(ast);
+  size_t len = vecLength_ASTNode(children);
+  switch (ast->kind) {
+  case EMPTY_NODE:
+    return true;
+  case LOCAL_DECLARATIONS_NODE:
+    bool ok = true;
+    for (size_t i = 0; i < len; i++) {
+      ok = semanticizeLocalDeclarations(vecIndex_ASTNode(children, i), symTable,
+                                        err, scope);
+    }
+    return ok;
+  case VAR_DECLARATION_NODE:
+    return semanticizeVarDeclaration(ast, symTable, scope, err);
+  default:
+    assert(0); // erro do analisador sintático
+  }
+}
+
+static bool semanticizeSelectionStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                          SemanticError *err,
+                                          Vector_ScopeEntry *scope) {}
+
+static bool semanticizeExpression(ASTNode *ast, Vector_Symbol *symTable,
+                                  SemanticError *err,
+                                  Vector_ScopeEntry *scope) {
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *simpleExpression =
+      vecLookup_ASTNode(children, SIMPLE_EXPRESSION_NODE);
+}
+
+static bool semanticizeExpressionStatement(ASTNode *ast,
+                                           Vector_Symbol *symTable,
+                                           SemanticError *err,
+                                           Vector_ScopeEntry *scope) {
+  assert(ast->kind == EXPRESSION_STMT_NODE);
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *expression = vecLookup_ASTNode(children, EXPRESSION_NODE);
+  if (expression == NULL) {
+    return true;
+  }
+  return semanticizeExpression(ast, symTable, err, scope);
+}
+
+static bool semanticizeIterationStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                          SemanticError *err,
+                                          Vector_ScopeEntry *scope) {}
+
+static bool semanticizeReturnStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                       SemanticError *err,
+                                       Vector_ScopeEntry *scope) {}
+
+static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                 SemanticError *err, Vector_ScopeEntry *scope) {
+  assert(ast->kind == STATEMENT_NODE);
+  ASTNode *child = getChild(ast);
+  switch (child->kind) {
+  case EXPRESSION_STMT_NODE:
+    return semanticizeExpressionStatement(child, symTable, err, scope);
+  case SELECTION_STMT_NODE:
+    return semanticizeSelectionStatement(child, symTable, err, scope);
+  case ITERATION_STMT_NODE:
+    return semanticizeIterationStatement(child, symTable, err, scope);
+  case RETURN_STMT_NODE:
+    return semanticizeReturnStatement(child, symTable, err, scope);
+  case COMPOUND_STMT_NODE:
+    return semanticizeCompoundStmt(child, symTable, err, scope);
+  default:
+    assert(0); // erro do analisador sintático
+  }
+}
+
+static bool semanticizeStatementList(ASTNode *ast, Vector_Symbol *symTable,
+                                     SemanticError *err,
+                                     Vector_ScopeEntry *scope) {
+
+  Vector_ASTNode *children = getChildren(ast);
+  size_t len = vecLength_ASTNode(children);
+  switch (ast->kind) {
+  case EMPTY_NODE:
+    return true;
+  case LOCAL_DECLARATIONS_NODE:
+    bool ok = true;
+    for (size_t i = 0; i < len; i++) {
+      ok = semanticizeStatementList(vecIndex_ASTNode(children, i), symTable,
+                                    err, scope);
+      if (!ok)
+        return false;
+    }
+    return true;
+  case VAR_DECLARATION_NODE:
+    return semanticizeStatement(ast, symTable, err, scope);
+  default:
+    assert(0); // erro do analisador sintático
+  }
+}
+
+static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
+                                    SemanticError *err,
+                                    Vector_ScopeEntry *scope) {
+  assert(ast->kind == COMPOUND_STMT_NODE);
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *localDeclarations =
+      vecKey_ASTNode(children, LOCAL_DECLARATIONS_NODE);
+  ASTNode *statementList = vecKey_ASTNode(children, STATEMENT_LIST_NODE);
+  semanticizeLocalDeclarations(localDeclarations, symTable, err, scope);
+}
+
 static bool semanticizeParams(ASTNode *ast, Vector_Symbol *out,
                               SemanticError *err, Vector_ScopeEntry *scope) {
   Vector_ASTNode *children = getChildren(ast);
@@ -317,7 +436,7 @@ static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
     return false;
   sym.spec.fun.params = parsedParams;
 
-  if (!symTablePush(scope, symTable, &sym, err))
+  if (!symTablePush(scope, symTable, &sym, err)) // necessário para recursão
     return false;
 
   for (size_t i = 0; i < vecLength_Symbol(&parsedParams); i++) {
