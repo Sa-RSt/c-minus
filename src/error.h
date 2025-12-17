@@ -40,7 +40,7 @@ typedef struct __anonymous_error {
 #define CREATE_ERROR_FROM(target, msg, other_error)                            \
   do {                                                                         \
     (target)->line = __LINE__;                                                 \
-    (target)->filename = __FILE_NAME__;                                        \
+    (target)->filename = __FILE__;                                             \
     (target)->message = msg;                                                   \
     (target)->caused = other_error;                                            \
   } while (0)

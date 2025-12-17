@@ -1,3 +1,4 @@
 dist/
 src/lex.yy.c
-
+trace.log
+.vscode
