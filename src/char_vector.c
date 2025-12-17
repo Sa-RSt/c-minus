@@ -48,33 +48,9 @@ Vector_char charVecStripWhitespace(const Vector_char *src) {
   return ret;
 }
 
-Vector_char charVecNormWhitespace(Vector_char *src) {
-  Vector_char ret = vecCreateWithCapacity_char(vecLength_char(src));
-
-  bool echoing = true;
-
-  for (size_t i = 0; i < vecLength_char(src); i++) {
-    char c = *vecIndex_char(src, i);
-    if (echoing) {
-      if (isspace(c)) {
-        c = ' ';
-        echoing = false;
-      }
-      vecPushRight_char(&ret, c);
-    } else {
-      if (!isspace(c)) {
-        vecPushRight_char(&ret, c);
-        echoing = true;
-      }
-    }
-  }
-
-  return ret;
-}
-
 static int _lenStrcmp(const char *left, const char *right, size_t left_len,
                       size_t right_len) {
-  if(left_len == 0 && right_len == 0) {
+  if (left_len == 0 && right_len == 0) {
     return 0;
   }
   if (left_len == 0) {

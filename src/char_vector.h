@@ -15,7 +15,6 @@ char *charVecCreateCArray(const Vector_char *str);
 Vector_char charVecFromCArray(const char *arr);
 void charVecAppendCArray(Vector_char *dest, const char *src);
 Vector_char charVecStripWhitespace(const Vector_char *src);
-Vector_char charVecNormWhitespace(Vector_char *src);
 int charVecStrcmp(const Vector_char *left, const Vector_char *right);
 DECLARE_STRINGIFY_FUNCTION(Vector_char, str);
 DECLARE_STRINGIFY_FUNCTION(Vector_Vector_char, vvc);

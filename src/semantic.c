@@ -1,5 +1,4 @@
 #include "semantic.h"
-#include "ast_attribute_names.h"
 #include "char_vector.h"
 #include "codegen.h"
 #include "error.h"
@@ -8,6 +7,9 @@
 #include "vector.h"
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 DECLARE_STRINGIFY_FUNCTION(DataTypeKind, dtk) {
   switch (dtk) {
@@ -131,6 +133,27 @@ duplicateVectorOfStrings(const Vector_Vector_char *vec) {
   return out;
 }
 
+static void setSemanticError(SemanticError *err, Vector_char *msg,
+                             uint32_t line) {
+  CREATE_ERROR(err, charVecCreateCArray(msg));
+  err->sourceLine = line;
+}
+
+static void setSemanticErrorPrefix(SemanticError *err, char *prefix,
+                                   Vector_char *suffix, uint32_t line) {
+  Vector_char msg = charVecFromCArray(prefix);
+  vecExtend_char(&msg, suffix);
+  setSemanticError(err, &msg, line);
+  vecFree_char(&msg);
+}
+
+static void setSemanticErrorLiteral(SemanticError *err, char *literal,
+                                    uint32_t line) {
+  Vector_char msg = charVecFromCArray(literal);
+  setSemanticError(err, &msg, line);
+  vecFree_char(&msg);
+}
+
 static Vector_ScopeEntry duplicateScope(const Vector_ScopeEntry *scope) {
   size_t len = vecLength_ScopeEntry(scope);
   Vector_ScopeEntry out = vecCreateWithCapacity_ScopeEntry(len);
@@ -187,12 +210,10 @@ static bool symTablePush(Vector_ScopeEntry *scope, Vector_Symbol *symTable,
   Vector_char *existing = vecLookup_Vector_char(&last->symbolNames, &sym->name);
   sym->scope = duplicateScope(scope);
   if (existing != NULL) {
-    Vector_char errMsg =
-        charVecFromCArray("símbolo declarado duas vezes no mesmo escopo: ");
-    Vector_char symRepr = STRINGIFY_TO_CHAR_VEC(Symbol, *sym);
-    vecExtend_char(&errMsg, &symRepr);
-    CREATE_ERROR(err, charVecCreateCArray(&errMsg)); // memory leak
-    vecFree_char(&symRepr);
+    setSemanticErrorPrefix(
+        err,
+        "símbolo declarado mais do que uma vez no mesmo escopo: ", &sym->name,
+        sym->line);
     return false;
   }
   vecPushRight_Vector_char(&last->symbolNames, vecDuplicate_char(&sym->name));
@@ -226,18 +247,27 @@ static bool requireIntTypeSpec(ASTNode *typeSpec, SemanticError *err) {
   if (ts == INT_TYPE_SPEC) {
     return true;
   }
-  CREATE_ERROR(err, "'int' é o único especificador válido para nesse contexto");
-  err->sourceLine = typeSpec->line;
+  setSemanticErrorLiteral(
+      err, "'int' é o único especificador válido para esse contexto",
+      typeSpec->line);
   return false;
 }
+
+static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                 SemanticError *err, Vector_ScopeEntry *scope,
+                                 Codegen *cgOut);
 
 static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
                                       Vector_ScopeEntry *scope,
                                       SemanticError *err);
 
+static bool semanticizeExpression(ASTNode *ast, Vector_Symbol *symTable,
+                                  SemanticError *err, Vector_ScopeEntry *scope,
+                                  Codegen *outCg);
+
 static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
                                     SemanticError *err,
-                                    Vector_ScopeEntry *scope);
+                                    Vector_ScopeEntry *scope, Codegen *outCg);
 
 static bool semanticizeLocalDeclarations(ASTNode *ast, Vector_Symbol *symTable,
                                          SemanticError *err,
@@ -261,29 +291,442 @@ static bool semanticizeLocalDeclarations(ASTNode *ast, Vector_Symbol *symTable,
   }
 }
 
+static bool mustGetSymbol(Vector_Symbol *symTable, Vector_char *name,
+                          Symbol *out, SemanticError *err, uint32_t line) {
+  Symbol *search = vecLookup_Symbol(symTable, name);
+  if (search == NULL) {
+    setSemanticErrorPrefix(err, "símbolo não encontrado: ", name, line);
+    return false;
+  }
+  *out = *search;
+  return true;
+}
+
 static bool semanticizeSelectionStatement(ASTNode *ast, Vector_Symbol *symTable,
                                           SemanticError *err,
-                                          Vector_ScopeEntry *scope) {}
+                                          Vector_ScopeEntry *scope,
+                                          Codegen *cgOut) {
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *conditionExpression = vecKey_ASTNode(children, EXPRESSION_NODE);
+  ASTNode *statementIf = vecSearchLeft_ASTNode(children, STATEMENT_NODE);
+  ASTNode *statementElse = vecSearchRight_ASTNode(children, STATEMENT_NODE);
+  assert(statementIf != NULL);
+  Codegen conditionCg;
+  if (!semanticizeExpression(conditionExpression, symTable, err, scope,
+                             &conditionCg))
+    return false;
+  if (conditionCg.resultType != INT_VALUE_TYPE) {
+    setSemanticErrorPrefix(
+        err, "condição do 'if' exige tipo int: ", &conditionExpression->content,
+        conditionExpression->line);
+    return false;
+  }
+  *cgOut = createCodegenObj();
+  vecExtend_Instruction(&cgOut->instructions, &conditionCg.instructions);
+  Register *ifNotLabelReg, *endifLabelReg;
+  Instruction ifNotLabelInst = createLabel(&ifNotLabelReg);
+  Instruction endifLabelInst;
+  if (statementElse != NULL) {
+    endifLabelInst = createLabel(&endifLabelReg);
+  }
+  vecPushRight_Instruction(
+      &cgOut->instructions,
+      createIfNotInstruction(conditionCg.result, ifNotLabelReg));
+  Codegen statementIfCg;
+  if (!semanticizeStatement(statementIf, symTable, err, scope, &statementIfCg))
+    return false;
+  vecExtend_Instruction(&cgOut->instructions, &statementIfCg.instructions);
+  if (statementElse != NULL) {
+    vecPushRight_Instruction(&cgOut->instructions, endifLabelInst);
+  }
+  vecPushRight_Instruction(&cgOut->instructions, ifNotLabelInst);
+  if (statementElse != NULL) {
+  }
+}
+
+static bool semanticizeArgs(ASTNode *ast, Vector_Symbol *symTable,
+                            SemanticError *err, Vector_ScopeEntry *scope,
+                            Vector_Codegen *outArgExprs) {
+  assert(ast->kind == ARGS_NODE || ast->kind == ARG_LIST_NODE ||
+         ast->kind == EMPTY_NODE || ast->kind == EXPRESSION_NODE);
+  if (ast->kind == EMPTY_NODE) {
+    return true;
+  }
+  if (ast->kind == ARGS_NODE || ast->kind == ARG_LIST_NODE) {
+    Vector_ASTNode *children = getChildren(ast);
+    for (size_t i = 0; i < vecLength_ASTNode(children); i++) {
+      if (!semanticizeArgs(vecIndex_ASTNode(children, i), symTable, err, scope,
+                           outArgExprs))
+        return false;
+    }
+    return true;
+  }
+  if (ast->kind == EXPRESSION_NODE) {
+    Codegen cg;
+    if (!semanticizeExpression(ast, symTable, err, scope, &cg))
+      return false;
+    vecPushRight_Codegen(outArgExprs, cg);
+    return true;
+  }
+  assert(0);
+}
+
+static bool semanticizeCall(ASTNode *ast, Vector_Symbol *symTable,
+                            SemanticError *err, Vector_ScopeEntry *scope,
+                            Codegen *outCg) {
+  assert(ast->kind == CALL_NODE);
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *identifier = vecKey_ASTNode(children, ID_NODE);
+  ASTNode *args = vecKey_ASTNode(children, ARGS_NODE);
+  Symbol sym;
+  if (!mustGetSymbol(symTable, &identifier->content, &sym, err,
+                     identifier->line))
+    return false;
+  if (sym.kind != FUN_SYMBOL) {
+    setSemanticErrorPrefix(
+        err, "esperava que o símbolo fosse uma função: ", &sym.name, sym.line);
+    return false;
+  }
+  Vector_Codegen argsCgs = vecCreateEmpty_Codegen();
+  Vector_Vector_char resultRegNames = vecCreateEmpty_Vector_char();
+  if (!semanticizeArgs(args, symTable, err, scope, &argsCgs))
+    return false;
+  size_t argCount = vecLength_Codegen(&argsCgs);
+  if (argCount != vecLength_Symbol(&sym.spec.fun.params)) {
+    setSemanticErrorPrefix(
+        err, "número incorreto de argumentos para a chamada de função: ",
+        &ast->content, ast->line);
+    return false;
+  }
+  *outCg = createCodegenObj();
+  outCg->resultType = sym.spec.fun.returnDataTypeKind;
+  for (size_t i = 0; i < argCount; i++) {
+    Codegen *element = vecIndex_Codegen(&argsCgs, i);
+    Symbol *paramSymbol = vecIndex_Symbol(&sym.spec.fun.params, i);
+    if (element->resultType != paramSymbol->spec.var.dataType.kind) {
+      setSemanticErrorPrefix(
+          err, "chamada de função: tipo incorreto para o parâmetro ",
+          &paramSymbol->name, ast->line);
+    }
+    vecExtend_Instruction(&outCg->instructions, &element->instructions);
+    vecPushRight_Vector_char(&resultRegNames, element->result->name);
+  }
+  for (size_t i = 0; i < argCount; i++) {
+    vecPushRight_Instruction(&outCg->instructions,
+                             createParamPushInstruction(getRegister(
+                                 vecIndex_Vector_char(&resultRegNames, i))));
+  }
+  Register *resultStorer;
+  if (sym.spec.fun.returnDataTypeKind == VOID_TYPE) {
+    resultStorer = NULL;
+  } else {
+    resultStorer = getTemporaryRegister();
+  }
+  vecPushRight_Instruction(
+      &outCg->instructions,
+      createCallInstruction(resultStorer, getRegisterNamedAfter(&sym)));
+  outCg->result = resultStorer;
+  return true;
+}
+
+static bool semanticizeFactor(ASTNode *ast, Vector_Symbol *symTable,
+                              SemanticError *err, Vector_ScopeEntry *scope,
+                              Codegen *outCg) {
+  assert(ast->kind == FACTOR_NODE);
+  ASTNode *child = getChild(ast);
+  ASTNodeKind childKind = child->kind;
+  assert(childKind == EXPRESSION_NODE || childKind == VAR_NODE ||
+         childKind == CALL_NODE || childKind == NUM_NODE);
+  if (childKind == EXPRESSION_NODE) {
+    return semanticizeExpression(child, symTable, err, scope, outCg);
+  }
+  if (childKind == CALL_NODE) {
+    return semanticizeCall(child, symTable, err, scope, outCg);
+  }
+  if (childKind == NUM_NODE) {
+    *outCg = createCodegenObj();
+    Register *resultStorer = getTemporaryRegister();
+    int64_t parsedNumber;
+    assert(sscanf(vecBorrow_char(&child->content, NULL), "%ld", &parsedNumber));
+    vecPushRight_Instruction(
+        &outCg->instructions,
+        createImmediateLoadInstruction(resultStorer, parsedNumber));
+    outCg->result = resultStorer;
+    outCg->resultType = INT_VALUE_TYPE;
+    return true;
+  }
+  if (childKind == VAR_NODE) {
+    Vector_ASTNode *children = getChildren(child);
+    ASTNode *identifier = vecKey_ASTNode(children, ID_NODE);
+    ASTNode *idxExpr = vecLookup_ASTNode(children, EXPRESSION_NODE);
+    Symbol varSym;
+    if (!mustGetSymbol(symTable, &identifier->content, &varSym, err,
+                       identifier->line))
+      return false;
+    if (varSym.kind == FUN_SYMBOL) {
+      setSemanticErrorPrefix(err,
+                             "uso inválido de função em expressão (talvez "
+                             "você tenha se esquecido de chamar ela?): ",
+                             &child->content, child->line);
+      return false;
+    }
+    Register *varReg = getRegisterNamedAfter(&varSym);
+    if (idxExpr == NULL) {
+      *outCg = createCodegenObj();
+      // not necessary to add any instruction here
+      outCg->result = varReg;
+      outCg->resultType = varSym.spec.var.dataType.kind;
+    } else {
+      if (varSym.spec.var.dataType.kind != INT_ARRAY_TYPE) {
+        setSemanticErrorPrefix(
+            err, "operador subscrito [] em símbolo que não é um vetor: ",
+            &child->content, child->line);
+        return false;
+      }
+      Codegen idxCg;
+      if (!semanticizeExpression(idxExpr, symTable, err, scope, &idxCg))
+        return false;
+      if (idxCg.resultType != INT_VALUE_TYPE) {
+        setSemanticErrorPrefix(
+            err, "int é o único tipo de dado aceito como índice de array: ",
+            &idxExpr->content, idxExpr->line);
+        return false;
+      }
+      Register *resultStorer = getTemporaryRegister();
+      *outCg = createCodegenObj();
+      outCg->result = resultStorer;
+      outCg->resultType = INT_VALUE_TYPE;
+      vecExtend_Instruction(&outCg->instructions, &idxCg.instructions);
+      vecPushRight_Instruction(
+          &outCg->instructions,
+          createArrayLoadInstruction(resultStorer, varReg, idxCg.result));
+      return true;
+    }
+  }
+}
+
+static bool semanticizeTerm(ASTNode *ast, Vector_Symbol *symTable,
+                            SemanticError *err, Vector_ScopeEntry *scope,
+                            Codegen *outCg) {
+  assert(ast->kind == TERM_NODE);
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *childTerm = vecLookup_ASTNode(children, TERM_NODE);
+  ASTNode *mulop = vecLookup_ASTNode(children, MULOP_NODE);
+  ASTNode *factor = vecKey_ASTNode(children, FACTOR_NODE);
+  Codegen factorCg;
+  if (!semanticizeFactor(factor, symTable, err, scope, &factorCg))
+    return false;
+  if (factorCg.resultType != INT_VALUE_TYPE) {
+    setSemanticErrorPrefix(err, "esperava tipo int: ", &factor->content,
+                           factor->line);
+    return false;
+  }
+  if (childTerm == NULL) {
+    *outCg = factorCg;
+    return true;
+  }
+  Codegen out = createCodegenObj();
+  Register *factorStorer = getTemporaryRegister();
+  vecExtend_Instruction(&out.instructions, &factorCg.instructions);
+  vecPushRight_Instruction(
+      &out.instructions, createMoveInstruction(factorStorer, factorCg.result));
+  Codegen childCg;
+  if (!semanticizeTerm(childTerm, symTable, err, scope, &childCg))
+    return false;
+  if (childCg.resultType != INT_VALUE_TYPE) {
+    setSemanticErrorPrefix(err, "esperava tipo int: ", &childTerm->content,
+                           childTerm->line);
+    return false;
+  }
+  vecExtend_Instruction(&out.instructions, &childCg.instructions);
+  InstructionOperator iop = iOperatorFromString(&mulop->content);
+  Register *resultStorer = getTemporaryRegister();
+  vecPushRight_Instruction(
+      &out.instructions, createArithmeticInstruction(
+                             resultStorer, childCg.result, iop, factorStorer));
+  out.result = resultStorer;
+  out.resultType = INT_VALUE_TYPE;
+  *outCg = out;
+  return true;
+}
+
+static bool semanticizeAdditiveExpression(ASTNode *ast, Vector_Symbol *symTable,
+                                          SemanticError *err,
+                                          Vector_ScopeEntry *scope,
+                                          Codegen *outCg) {
+  assert(ast->kind == ADDITIVE_EXPRESSION_NODE);
+  Codegen out = createCodegenObj();
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *childAdditiveExpr =
+      vecLookup_ASTNode(children, ADDITIVE_EXPRESSION_NODE);
+  ASTNode *addop = vecLookup_ASTNode(children, ADDOP_NODE);
+  ASTNode *term = vecKey_ASTNode(children, TERM_NODE);
+  Codegen termCg;
+  if (!semanticizeTerm(term, symTable, err, scope, &termCg))
+    return false;
+  if (termCg.resultType != INT_VALUE_TYPE) {
+    setSemanticErrorPrefix(err, "esperava tipo int: ", &term->content,
+                           term->line);
+    return false;
+  }
+  if (childAdditiveExpr == NULL) {
+    *outCg = termCg;
+    return true;
+  }
+  Register *termStorer = getTemporaryRegister();
+  vecExtend_Instruction(&out.instructions, &termCg.instructions);
+  vecPushRight_Instruction(&out.instructions,
+                           createMoveInstruction(termStorer, termCg.result));
+  Codegen childCg;
+  if (!semanticizeAdditiveExpression(childAdditiveExpr, symTable, err, scope,
+                                     &childCg))
+    return false;
+  if (childCg.resultType != INT_VALUE_TYPE) {
+    setSemanticErrorPrefix(err,
+                           "esperava tipo int: ", &childAdditiveExpr->content,
+                           childAdditiveExpr->line);
+    return false;
+  }
+  vecExtend_Instruction(&out.instructions, &childCg.instructions);
+  InstructionOperator iop = iOperatorFromString(&addop->content);
+  Register *resultStorer = getTemporaryRegister();
+  vecPushRight_Instruction(&out.instructions,
+                           createArithmeticInstruction(
+                               resultStorer, childCg.result, iop, termStorer));
+  out.result = resultStorer;
+  out.resultType = INT_VALUE_TYPE;
+  *outCg = out;
+  return true;
+}
+
+static bool semanticizeSimpleExpression(ASTNode *ast, Vector_Symbol *symTable,
+                                        SemanticError *err,
+                                        Vector_ScopeEntry *scope,
+                                        Codegen *outCg) {
+  assert(ast->kind == SIMPLE_EXPRESSION_NODE);
+  Vector_ASTNode *children = getChildren(ast);
+  ASTNode *relopNode = vecLookup_ASTNode(children, RELOP_NODE);
+  if (relopNode != NULL) {
+    ASTNode *lhs = vecSearchLeft_ASTNode(children, ADDITIVE_EXPRESSION_NODE);
+    ASTNode *rhs = vecSearchRight_ASTNode(children, ADDITIVE_EXPRESSION_NODE);
+    assert(lhs != NULL && rhs != NULL);
+    Codegen cgLhs, cgRhs;
+    InstructionOperator iop = iOperatorFromString(&relopNode->content);
+    if (!semanticizeAdditiveExpression(lhs, symTable, err, scope, &cgLhs))
+      return false;
+    if (!semanticizeAdditiveExpression(rhs, symTable, err, scope, &cgRhs))
+      return false;
+    if (cgLhs.resultType != INT_VALUE_TYPE ||
+        cgRhs.resultType != INT_VALUE_TYPE) {
+      setSemanticErrorPrefix(
+          err, "comparação só pode ser feita entre valores numéricos: ",
+          &ast->content, ast->line);
+      return false;
+    }
+    Register *lhsResult = getTemporaryRegister();
+    Register *cmpResult = getTemporaryRegister();
+    Codegen out = createCodegenObj();
+    vecExtend_Instruction(&out.instructions, &cgLhs.instructions);
+    vecPushRight_Instruction(&out.instructions,
+                             createMoveInstruction(lhsResult, cgLhs.result));
+    vecExtend_Instruction(&out.instructions, &cgRhs.instructions);
+    vecPushRight_Instruction(
+        &out.instructions,
+        createArithmeticInstruction(cmpResult, lhsResult, iop, cgRhs.result));
+    out.result = cmpResult;
+    *outCg = out;
+    return true;
+  } else {
+    return semanticizeAdditiveExpression(
+        vecKey_ASTNode(children, ADDITIVE_EXPRESSION_NODE), symTable, err,
+        scope, outCg);
+  }
+}
 
 static bool semanticizeExpression(ASTNode *ast, Vector_Symbol *symTable,
-                                  SemanticError *err,
-                                  Vector_ScopeEntry *scope) {
+                                  SemanticError *err, Vector_ScopeEntry *scope,
+                                  Codegen *outCg) {
+  assert(ast->kind == EXPRESSION_NODE);
   Vector_ASTNode *children = getChildren(ast);
   ASTNode *simpleExpression =
       vecLookup_ASTNode(children, SIMPLE_EXPRESSION_NODE);
+  if (simpleExpression == NULL) {
+    ASTNode *varNode = vecKey_ASTNode(children, VAR_NODE);
+    Vector_ASTNode *varChildren = getChildren(varNode);
+    ASTNode *varIdent = vecKey_ASTNode(varChildren, ID_NODE);
+    ASTNode *varIndexExpr = vecLookup_ASTNode(varChildren, EXPRESSION_NODE);
+    ASTNode *expressionNode = vecKey_ASTNode(children, EXPRESSION_NODE);
+    Symbol varSymbol;
+    if (!mustGetSymbol(symTable, &varIdent->content, &varSymbol, err,
+                       ast->line))
+      return false;
+    if (varSymbol.kind != VAR_SYMBOL) {
+      setSemanticErrorPrefix(
+          err, "não se pode atribuir valores à função (constante): ",
+          &varSymbol.name, varSymbol.line);
+      return false;
+    }
+    Register *varReg = getRegisterNamedAfter(&varSymbol);
+    Codegen cg, cgIndex;
+    bool addIndexStore = false;
+    if (!semanticizeExpression(expressionNode, symTable, err, scope, &cg))
+      return false;
+    if (varSymbol.spec.var.dataType.kind == INT_ARRAY_TYPE) {
+      if (varIndexExpr == NULL && cg.resultType != INT_ARRAY_TYPE) {
+        setSemanticErrorPrefix(err,
+                               "esperava uma expressão do tipo int[] (será que "
+                               "você esqueceu de indexar o array?): ",
+                               &ast->content, expressionNode->line);
+        return false;
+      } else if (varIndexExpr != NULL) {
+        Codegen cgIndex;
+        if (!semanticizeExpression(varIndexExpr, symTable, err, scope,
+                                   &cgIndex))
+          return false;
+        if (cgIndex.resultType != INT_VALUE_TYPE) {
+          setSemanticErrorPrefix(
+              err, "índices de arrays precisam ser expressões do tipo int",
+              &varIndexExpr->content, varIndexExpr->line);
+          return false;
+        }
+        addIndexStore = true;
+      }
+    }
+    Codegen out = createCodegenObj();
+    out.resultType = cg.resultType;
+    out.result = varReg;
+    vecExtend_Instruction(&out.instructions, &cg.instructions);
+    if (addIndexStore) {
+      Register *whatToStore = getTemporaryRegister();
+      vecPushRight_Instruction(&out.instructions,
+                               createMoveInstruction(whatToStore, cg.result));
+      vecExtend_Instruction(&out.instructions, &cgIndex.instructions);
+      vecPushRight_Instruction(
+          &out.instructions,
+          createArrayStoreInstruction(varReg, cgIndex.result, whatToStore));
+    } else {
+      vecPushRight_Instruction(&out.instructions,
+                               createMoveInstruction(varReg, cg.result));
+    }
+    *outCg = out;
+    return true;
+  } else {
+    return semanticizeSimpleExpression(ast, symTable, err, scope, outCg);
+  }
 }
 
 static bool semanticizeExpressionStatement(ASTNode *ast,
                                            Vector_Symbol *symTable,
                                            SemanticError *err,
-                                           Vector_ScopeEntry *scope) {
+                                           Vector_ScopeEntry *scope,
+                                           Codegen *cg) {
   assert(ast->kind == EXPRESSION_STMT_NODE);
   Vector_ASTNode *children = getChildren(ast);
   ASTNode *expression = vecLookup_ASTNode(children, EXPRESSION_NODE);
   if (expression == NULL) {
     return true;
   }
-  return semanticizeExpression(ast, symTable, err, scope);
+  return semanticizeExpression(ast, symTable, err, scope, cg);
 }
 
 static bool semanticizeIterationStatement(ASTNode *ast, Vector_Symbol *symTable,
@@ -295,20 +738,21 @@ static bool semanticizeReturnStatement(ASTNode *ast, Vector_Symbol *symTable,
                                        Vector_ScopeEntry *scope) {}
 
 static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
-                                 SemanticError *err, Vector_ScopeEntry *scope) {
+                                 SemanticError *err, Vector_ScopeEntry *scope,
+                                 Codegen *cgOut) {
   assert(ast->kind == STATEMENT_NODE);
   ASTNode *child = getChild(ast);
   switch (child->kind) {
   case EXPRESSION_STMT_NODE:
-    return semanticizeExpressionStatement(child, symTable, err, scope);
+    return semanticizeExpressionStatement(child, symTable, err, scope, cgOut);
   case SELECTION_STMT_NODE:
-    return semanticizeSelectionStatement(child, symTable, err, scope);
+    return semanticizeSelectionStatement(child, symTable, err, scope, cgOut);
   case ITERATION_STMT_NODE:
-    return semanticizeIterationStatement(child, symTable, err, scope);
+    return semanticizeIterationStatement(child, symTable, err, scope, cgOut);
   case RETURN_STMT_NODE:
-    return semanticizeReturnStatement(child, symTable, err, scope);
+    return semanticizeReturnStatement(child, symTable, err, scope, cgOut);
   case COMPOUND_STMT_NODE:
-    return semanticizeCompoundStmt(child, symTable, err, scope);
+    return semanticizeCompoundStmt(child, symTable, err, scope, cgOut);
   default:
     assert(0); // erro do analisador sintático
   }
@@ -316,7 +760,7 @@ static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
 
 static bool semanticizeStatementList(ASTNode *ast, Vector_Symbol *symTable,
                                      SemanticError *err,
-                                     Vector_ScopeEntry *scope) {
+                                     Vector_ScopeEntry *scope, Codegen *cgOut) {
 
   Vector_ASTNode *children = getChildren(ast);
   size_t len = vecLength_ASTNode(children);
@@ -327,13 +771,15 @@ static bool semanticizeStatementList(ASTNode *ast, Vector_Symbol *symTable,
     bool ok = true;
     for (size_t i = 0; i < len; i++) {
       ok = semanticizeStatementList(vecIndex_ASTNode(children, i), symTable,
-                                    err, scope);
+                                    err, scope, cgOut);
       if (!ok)
         return false;
     }
     return true;
   case VAR_DECLARATION_NODE:
-    return semanticizeStatement(ast, symTable, err, scope);
+    return semanticizeVarDeclaration(ast, symTable, scope, err);
+  case STATEMENT_NODE:
+    return semanticizeStatement(ast, symTable, err, scope, cgOut);
   default:
     assert(0); // erro do analisador sintático
   }
@@ -341,7 +787,7 @@ static bool semanticizeStatementList(ASTNode *ast, Vector_Symbol *symTable,
 
 static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
                                     SemanticError *err,
-                                    Vector_ScopeEntry *scope) {
+                                    Vector_ScopeEntry *scope, Codegen *cgOut) {
   assert(ast->kind == COMPOUND_STMT_NODE);
   Vector_ASTNode *children = getChildren(ast);
   ASTNode *localDeclarations =
@@ -402,7 +848,7 @@ static bool semanticizeParams(ASTNode *ast, Vector_Symbol *out,
 
 static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
                                       Vector_ScopeEntry *scope,
-                                      SemanticError *err) {
+                                      SemanticError *err, Codegen *cgOut) {
 
   assert(ast->kind == FUN_DECLARATION_NODE);
 
@@ -453,7 +899,7 @@ static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
 
 static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
                                       Vector_ScopeEntry *scope,
-                                      SemanticError *err) {
+                                      SemanticError *err, Codegen *cgOut) {
   assert(ast->kind == VAR_DECLARATION_NODE);
 
   Vector_ASTNode *children = getChildren(ast);
@@ -482,20 +928,12 @@ static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   sym.kind = VAR_SYMBOL;
   sym.isParameter = false;
   symTablePush(scope, symTable, &sym, err);
-  Attribute save;
-  save.name = VAR_FUN_DECLARATION__SYMBOL;
-  save.type = STRUCT_ATTRIBUTE;
-  AttributeValue val;
-  val.structure = vecCopiedFromArray_uint8_t((uint8_t *)&sym, sizeof(sym));
-  save.value = val;
-  vecPushRight_Attribute(&ast->attributes, save);
-
   return true;
 }
 
 static bool semanticizeDeclaration(ASTNode *ast, Vector_Symbol *symTable,
-                                   Vector_ScopeEntry *scope,
-                                   SemanticError *err) {
+                                   Vector_ScopeEntry *scope, SemanticError *err,
+                                   Codegen *cgOut) {
   assert(ast->kind == DECLARATION_NODE);
 
   ASTNode *childNode = getChild(ast);
@@ -512,7 +950,7 @@ static bool semanticizeDeclaration(ASTNode *ast, Vector_Symbol *symTable,
 
 static bool semanticizeDeclarationList(ASTNode *ast, Vector_Symbol *symTable,
                                        Vector_ScopeEntry *scope,
-                                       SemanticError *err) {
+                                       SemanticError *err, Codegen *cgOut) {
   assert(ast->kind == DECLARATION_LIST_NODE);
   Vector_ASTNode *declarations = getChildren(ast);
   size_t len = vecLength_ASTNode(declarations);
