@@ -481,13 +481,6 @@ static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   sym.kind = VAR_SYMBOL;
   sym.isParameter = false;
   symTablePush(scope, symTable, &sym, err);
-  Attribute save;
-  save.name = VAR_FUN_DECLARATION__SYMBOL;
-  save.type = STRUCT_ATTRIBUTE;
-  AttributeValue val;
-  val.structure = vecCopiedFromArray_uint8_t((uint8_t *)&sym, sizeof(sym));
-  save.value = val;
-  vecPushRight_Attribute(&ast->attributes, save);
 
   return true;
 }

@@ -2,45 +2,26 @@
 #include "char_vector.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#ifndef SYNTAX_TRACE
-#define SYNTAX_TRACE 1
-#endif
-
-// Getter functions for vector search
+#pragma region DECLARE_VECTOR_TYPES
+// Funções 'get' necessárias para DECLARE_VECTOR_TYPE
 static ASTNodeKind getASTNodeKind(ASTNode node) { return node.kind; }
 
-static Vector_char getAttributeName(Attribute attr) { return attr.name; }
-
-// Comparers
+// Funções de comparação necessárias para DECLARE_VECTOR_TYPE
 static int astNodeKindComparer(ASTNodeKind a, ASTNodeKind b) {
   return (int)a - (int)b;
 }
 
-static int attributeNameComparer(Vector_char a, Vector_char b) {
-  return charVecStrcmp(&a, &b);
-}
-
-// DECLARE_VECTOR_TYPES
-
-#define NULL_GETTER(x) (NULL)
-#define NULL_COMPARER(x, y) 1
-
-DECLARE_VECTOR_TYPE(Attribute, Vector_char, getAttributeName,
-                    attributeNameComparer)
 DECLARE_VECTOR_TYPE(ASTNode, ASTNodeKind, getASTNodeKind, astNodeKindComparer)
-DECLARE_VECTOR_TYPE(int64_t, int64_t, NULL_GETTER, NULL_COMPARER)
-DECLARE_VECTOR_TYPE(double, double, NULL_GETTER, NULL_COMPARER)
-DECLARE_VECTOR_TYPE(voidp, voidp, NULL_GETTER, NULL_COMPARER)
-DECLARE_VECTOR_TYPE(uint8_t, uint8_t, NULL_GETTER, NULL_COMPARER)
-DECLARE_VECTOR_TYPE(Vector_uint8_t, Vector_uint8_t *, NULL_GETTER,
-                    NULL_COMPARER)
+#pragma endregion
 
+#pragma region DECLARE_STRINGIFY_FUNCTIONS
+
+// Função de stringify para retorno de erros de sintaxe
 DECLARE_STRINGIFY_FUNCTION(SyntaxError, err) {
   STRINGIFY_PUT("Syntax error in line: ");
   STRINGIFY_PUT_VALUE(uint32_t, err.line);
-  STRINGIFY_PUT(", message=");
+  STRINGIFY_PUT(", message: ");
   STRINGIFY_PUT(err.message);
   STRINGIFY_PUT(")");
 }
@@ -84,7 +65,7 @@ DECLARE_STRINGIFY_FUNCTION(ASTNodeKind, kind) {
     STRINGIFY_PUT("EMPTY_SQR");
     break;
   case COMPOUND_STMT_NODE:
-    STRINGIFY_PUT("COMPOUND");
+    STRINGIFY_PUT("COMPOUND ");
     break;
   case LOCAL_DECLARATIONS_NODE:
     STRINGIFY_PUT("LOCAL_DECLS");
@@ -151,41 +132,31 @@ DECLARE_STRINGIFY_FUNCTION(ASTNodeKind, kind) {
     break;
   }
 }
+#pragma endregion
 
-DECLARE_STRINGIFY_FUNCTION(ASTNode, node) {
-  STRINGIFY_PUT("ASTNode(kind=");
-  STRINGIFY_PUT_VALUE(ASTNodeKind, node.kind);
-  STRINGIFY_PUT(", line=");
-  STRINGIFY_PUT_VALUE(uint32_t, node.line);
-  STRINGIFY_PUT(", content=");
-  STRINGIFY_PUT_VALUE(Vector_char, node.content);
-  STRINGIFY_PUT(", children_count=");
-  STRINGIFY_PUT_VALUE(size_t, vecLength_ASTNode(&node.children));
-  STRINGIFY_PUT(")");
-}
-
-void printASTTree(const ASTNode *node, int indent) {
+void printASTTree(const ASTNode *node, size_t indent) {
   if (node == NULL)
     return;
 
-  // Print indentation
-  for (int i = 0; i < indent; i++)
+  // Indentação
+  for (size_t i = 0; i < indent; i++)
     printf("  ");
 
-  // Print node kind
+  // Encontra o tipo de nó
   staticStringifyBuffer[0] = 0;
   stringify_ASTNodeKind(node->kind, staticStringifyBuffer);
-
-  // Print content if non-empty
   printf("[%s] (line %u)", staticStringifyBuffer, node->line);
-  if (vecLength_char((Vector_char *)&node->content) > 0) {
+
+  // Imprime conteúdo, se houver
+  if (vecLength_char((Vector_char *)&node->content) > 0) 
+      {
     char *text = charVecCreateCArray((Vector_char *)&node->content);
     printf(" content=\"%s\"", text);
     free(text);
   }
   printf("\n");
 
-  // Recursively print children
+  // Recursão para os filhos
   size_t num_children = vecLength_ASTNode((Vector_ASTNode *)&node->children);
   for (size_t i = 0; i < num_children; i++) {
     ASTNode *child = vecIndex_ASTNode((Vector_ASTNode *)&node->children, i);
@@ -229,58 +200,62 @@ arg_list -> arg_list ',' expression | expression
 #pragma endregion
 
 #pragma region PARSER_DECLARATIONS
+
 // Declarações
-static ASTNode *parse_program(Vector_Token *tokens, size_t *pos,
-                              SyntaxError *err);
-static ASTNode *parse_declaration_list(Vector_Token *tokens, size_t *pos,
-                                       SyntaxError *err);
-static ASTNode *parse_declaration(Vector_Token *tokens, size_t *pos,
-                                  SyntaxError *err);
-static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
-                                      ASTNode *type_spec, Token *id_token,
-                                      SyntaxError *err);
-static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos,
-                                      ASTNode *type_spec, Token *id_token,
-                                      SyntaxError *err);
-static ASTNode *parse_type_specifier(Vector_Token *tokens, size_t *pos,
-                                     SyntaxError *err);
-static ASTNode *parse_params(Vector_Token *tokens, size_t *pos,
-                             SyntaxError *err);
-static ASTNode *parse_param_list(Vector_Token *tokens, size_t *pos,
-                                 SyntaxError *err);
-static ASTNode *parse_param(Vector_Token *tokens, size_t *pos,
-                            SyntaxError *err);
-static ASTNode *parse_compound_stmt(Vector_Token *tokens, size_t *pos,
-                                    SyntaxError *err);
-static ASTNode *parse_local_declarations(Vector_Token *tokens, size_t *pos,
-                                         SyntaxError *err);
-static ASTNode *parse_statement_list(Vector_Token *tokens, size_t *pos,
-                                     SyntaxError *err);
-static ASTNode *parse_statement(Vector_Token *tokens, size_t *pos,
-                                SyntaxError *err);
-static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos,
-                                      SyntaxError *err);
-static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos,
-                                     SyntaxError *err);
-static ASTNode *parse_iteration_stmt(Vector_Token *tokens, size_t *pos,
-                                     SyntaxError *err);
-static ASTNode *parse_return_stmt(Vector_Token *tokens, size_t *pos,
-                                  SyntaxError *err);
-static ASTNode *parse_expression(Vector_Token *tokens, size_t *pos,
-                                 SyntaxError *err);
+static ASTNode *parse_program(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_declaration_list(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_declaration(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos, 
+ASTNode *type_spec, Token *id_token, SyntaxError *err);
+
+static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos, 
+ASTNode *type_spec, Token *id_token, SyntaxError *err);
+
+static ASTNode *parse_type_specifier(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_params(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_param_list(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_param(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_compound_stmt(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_local_declarations(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_statement_list(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_statement(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_iteration_stmt(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_return_stmt(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_expression(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
 static ASTNode *parse_var(Vector_Token *tokens, size_t *pos, SyntaxError *err);
-static ASTNode *parse_simple_expression(Vector_Token *tokens, size_t *pos,
-                                        SyntaxError *err);
-static ASTNode *parse_additive_expression(Vector_Token *tokens, size_t *pos,
-                                          SyntaxError *err);
+
+static ASTNode *parse_simple_expression(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
+static ASTNode *parse_additive_expression(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+
 static ASTNode *parse_term(Vector_Token *tokens, size_t *pos, SyntaxError *err);
-static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
-                             SyntaxError *err);
-static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, Token *id_token,
-                           SyntaxError *err);
+
+static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos, SyntaxError *err);
+                             
+static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, 
+Token *id_token, SyntaxError *err);
+
 static ASTNode *parse_args(Vector_Token *tokens, size_t *pos, SyntaxError *err);
-static ASTNode *parse_arg_list(Vector_Token *tokens, size_t *pos,
-                               SyntaxError *err);
+
+static ASTNode *parse_arg_list(Vector_Token *tokens, size_t *pos, SyntaxError *err);
 #pragma endregion
 
 #pragma region UTILITY_FUNCTIONS
@@ -293,17 +268,11 @@ static Token *peek(Vector_Token *tokens, size_t pos) {
   return vecIndex_Token(tokens, pos);
 }
 
+// Avança o ponteiro de tokens
 static Token *advance(Vector_Token *tokens, size_t *pos) {
   Token *token = peek(tokens, *pos);
   if (token != NULL) {
     (*pos)++;
-  }
-  if (SYNTAX_TRACE && token) {
-    // Trace every advance to catch kind/content drift
-    char *text = charVecCreateCArray(&token->content);
-    fprintf(stderr, "[SYN][advance] pos=%zu->%zu kind=%d line=%u text=\"%s\"\n",
-            *pos - 1, *pos, (int)token->kind, token->line, text);
-    free(text);
   }
   return token;
 }
@@ -361,35 +330,6 @@ static bool is_rbrace(Token *token) {
   return token != NULL && token->kind == RIGHT_CURLY_BRACE_TOKEN;
 }
 
-static bool is_left_comment(Token *token) {
-  return token != NULL && token->kind == LEFT_COMMENT_TOKEN;
-}
-
-static bool is_right_comment(Token *token) {
-  return token != NULL && token->kind == RIGHT_COMMENT_TOKEN;
-}
-
-// Basic tracing helpers to locate crashes while parsing
-static void trace_state(const char *tag, Vector_Token *tokens, size_t pos) {
-  if (!SYNTAX_TRACE)
-    return;
-  Token *t = peek(tokens, pos);
-  if (t) {
-    char *text = charVecCreateCArray(&t->content);
-    fprintf(stderr, "[SYN][%s] pos=%zu kind=%d line=%u text=\"%s\"\n", tag, pos,
-            (int)t->kind, t->line, text);
-    free(text);
-  } else {
-    fprintf(stderr, "[SYN][%s] pos=%zu <eof>\n", tag, pos);
-  }
-}
-
-static void trace_node(const char *tag, ASTNodeKind kind, uint32_t line) {
-  if (!SYNTAX_TRACE)
-    return;
-  fprintf(stderr, "[SYN][node-%s] kind=%d line=%u\n", tag, (int)kind, line);
-}
-
 // Inicializa uma ASTNode
 static ASTNode *create_node(ASTNode *node, ASTNodeKind kind, uint32_t line) {
   if (node == NULL) {
@@ -398,10 +338,7 @@ static ASTNode *create_node(ASTNode *node, ASTNodeKind kind, uint32_t line) {
   node->content = vecCreateEmpty_char(); // String vazia
   node->kind = kind;
   node->line = line;
-  node->attributes =
-      vecCreateEmpty_Attribute(); // Vetor de atributos vazio (Para semântica)
   node->children = vecCreateEmpty_ASTNode(); // Vetor de filhos vazio
-  trace_node("create", kind, line);
   return node;
 }
 
@@ -422,15 +359,11 @@ static void set_error(SyntaxError *err, Token *token, const char *message) {
   err->filename = __FILE__;
   err->message = (char *)message;
   err->caused = NULL;
-  if (SYNTAX_TRACE) {
-    fprintf(stderr, "[SYN][error] line=%u msg=%s\n", err->line, message);
-  }
 }
 
-// Avança se o token for do tipo esperado, senão seta erro (Bom para 'consumir'
-// tokens)
+// Avança se o token for do tipo esperado, senão seta erro (Bom para 'consumir' tokens)
 static Token *expect(Vector_Token *tokens, size_t *pos, TokenKind kind,
-                     SyntaxError *err) {
+SyntaxError *err) {
   Token *token = advance(tokens, pos);
   if (token == NULL || token->kind != kind) {
     set_error(err, token, "Unexpected token.");
@@ -444,12 +377,10 @@ static Token *expect(Vector_Token *tokens, size_t *pos, TokenKind kind,
 #pragma region PARSER_IMPLEMENTATION
 
 // program -> declaration_list
-static ASTNode *parse_program(Vector_Token *tokens, size_t *pos,
-                              SyntaxError *err) {
-  trace_state("program-start", tokens, *pos);
+static ASTNode *parse_program(Vector_Token *tokens, size_t *pos, SyntaxError *err) {
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
-    set_error(err, NULL, "Expected program but found end of input.");
+    set_error(err, NULL, "Esperado: Programa, encontrado fim da entrada.");
     return NULL;
   }
   ASTNode *node = malloc(sizeof(ASTNode));
@@ -460,23 +391,21 @@ static ASTNode *parse_program(Vector_Token *tokens, size_t *pos,
     return NULL; // O próprio declaration_list já envia erro
   }
   vecPushRight_ASTNode(&node->children, *decl_list);
-  trace_state("program-end", tokens, *pos);
   return node;
 }
 
 // declaration_list -> declaration_list declaration | declaration
 static ASTNode *parse_declaration_list(Vector_Token *tokens, size_t *pos,
                                        SyntaxError *err) {
-  trace_state("decl-list-start", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
-    set_error(err, NULL, "Expected declaration but found end of input.");
+    set_error(err, NULL, "Esperado: Declaração, encontrado fim da entrada.");
     return NULL;
   }
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, DECLARATION_LIST_NODE, first->line);
 
-  // Parse first declaration (required)
+  // Faz o parse da primeira declaração
   ASTNode *first_decl = parse_declaration(tokens, pos, err);
   if (first_decl == NULL) {
     return NULL;
@@ -484,9 +413,10 @@ static ASTNode *parse_declaration_list(Vector_Token *tokens, size_t *pos,
   vecPushRight_ASTNode(&node->children, *first_decl);
   free(first_decl);
 
+  // Itera para pegar declarações seguintes
   Token *current = peek(tokens, *pos);
   while (current != NULL &&
-         (is_keyword(current, "int") || is_keyword(current, "void"))) {
+         (is_keyword(current, "int") || is_keyword(current, "void"))) { 
     ASTNode *decl = parse_declaration(tokens, pos, err);
     if (decl == NULL) {
       return NULL;
@@ -498,15 +428,12 @@ static ASTNode *parse_declaration_list(Vector_Token *tokens, size_t *pos,
 
   ASTNode *result = malloc(sizeof(ASTNode));
   *result = *node;
-  trace_state("decl-list-end", tokens, *pos);
   return result;
 }
 
 // declaration -> var_declaration | fun_declaration
-// Both start with type_specifier ID, so we parse that first then decide
 static ASTNode *parse_declaration(Vector_Token *tokens, size_t *pos,
                                   SyntaxError *err) {
-  trace_state("decl-start", tokens, *pos);
   ASTNode *type_spec = parse_type_specifier(tokens, pos, err);
   if (type_spec == NULL) {
     return NULL;
@@ -518,10 +445,8 @@ static ASTNode *parse_declaration(Vector_Token *tokens, size_t *pos,
   }
   Token *next_token = peek(tokens, *pos);
   if (next_token != NULL && is_lparen(next_token)) {
-    trace_state("decl-fun", tokens, *pos);
     return parse_fun_declaration(tokens, pos, type_spec, id_token, err);
   } else {
-    trace_state("decl-var", tokens, *pos);
     return parse_var_declaration(tokens, pos, type_spec, id_token, err);
   }
 }
@@ -530,7 +455,6 @@ static ASTNode *parse_declaration(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
                                       ASTNode *type_spec, Token *id_token,
                                       SyntaxError *err) {
-  trace_state("var-decl", tokens, *pos);
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, VAR_DECLARATION_NODE, id_token->line);
 
@@ -543,7 +467,7 @@ static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
 
   Token *next = peek(tokens, *pos);
   if (next != NULL && is_lbracket(next)) {
-    advance(tokens, pos); // consume '['
+    advance(tokens, pos); // consome '['
     Token *num_token = expect(tokens, pos, NUMBER_TOKEN, err);
     if (num_token == NULL) {
       free(node);
@@ -559,7 +483,7 @@ static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
       free(node);
       return NULL;
     }
-    advance(tokens, pos); // consume ']'
+    advance(tokens, pos); // consome ']'
   }
 
   Token *semicolon = peek(tokens, *pos);
@@ -568,7 +492,7 @@ static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ';'
+  advance(tokens, pos); // consome ';'
 
   return node;
 }
@@ -577,7 +501,6 @@ static ASTNode *parse_var_declaration(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos,
                                       ASTNode *type_spec, Token *id_token,
                                       SyntaxError *err) {
-  trace_state("fun-decl", tokens, *pos);
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, FUN_DECLARATION_NODE, id_token->line);
 
@@ -594,7 +517,7 @@ static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume '('
+  advance(tokens, pos); // consome '('
 
   ASTNode *params = parse_params(tokens, pos, err);
   if (params == NULL) {
@@ -610,7 +533,7 @@ static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ')'
+  advance(tokens, pos); // consome ')'
 
   ASTNode *compound = parse_compound_stmt(tokens, pos, err);
   if (compound == NULL) {
@@ -626,19 +549,12 @@ static ASTNode *parse_fun_declaration(Vector_Token *tokens, size_t *pos,
 // type_specifier -> 'int' | 'void'
 static ASTNode *parse_type_specifier(Vector_Token *tokens, size_t *pos,
                                      SyntaxError *err) {
-  trace_state("type-spec", tokens, *pos);
   Token *token = advance(tokens, pos);
   if (token == NULL || token->kind != KEYWORD_TOKEN) {
     set_error(err, token, "Expected type specifier ('int' or 'void').");
     return NULL;
   }
   if (!is_keyword(token, "int") && !is_keyword(token, "void")) {
-    if (SYNTAX_TRACE) {
-      char *text = charVecCreateCArray(&token->content);
-      fprintf(stderr, "[SYN][type-spec-mismatch] kind=%d text=\"%s\"\n",
-              (int)token->kind, text);
-      free(text);
-    }
     set_error(err, token, "Expected 'int' or 'void'.");
     return NULL;
   }
@@ -648,7 +564,6 @@ static ASTNode *parse_type_specifier(Vector_Token *tokens, size_t *pos,
 // params -> param_list | 'void'
 static ASTNode *parse_params(Vector_Token *tokens, size_t *pos,
                              SyntaxError *err) {
-  trace_state("params", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected parameters.");
@@ -658,12 +573,12 @@ static ASTNode *parse_params(Vector_Token *tokens, size_t *pos,
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, PARAMS_NODE, first->line);
 
-  // Check if it's 'void' alone
+  // Verifica se é só 'void'
   if (is_keyword(first, "void")) {
     Token *next = peek(tokens, *pos + 1);
     if (next != NULL && is_rparen(next)) {
-      // It's just 'void' with no params
-      advance(tokens, pos); // consume 'void'
+      // Se é só 'void'
+      advance(tokens, pos); // consome 'void'
       ASTNode *void_node = create_node_from_token(TYPE_SPECIFIER_NODE, first);
       vecPushRight_ASTNode(&node->children, *void_node);
       free(void_node);
@@ -671,7 +586,7 @@ static ASTNode *parse_params(Vector_Token *tokens, size_t *pos,
     }
   }
 
-  // Otherwise parse param_list
+  // Caso contrário, parse da param_list
   ASTNode *param_list = parse_param_list(tokens, pos, err);
   if (param_list == NULL) {
     free(node);
@@ -684,10 +599,8 @@ static ASTNode *parse_params(Vector_Token *tokens, size_t *pos,
 }
 
 // param_list -> param_list ',' param | param
-// Left recursion eliminated: param_list -> param {',' param}
 static ASTNode *parse_param_list(Vector_Token *tokens, size_t *pos,
                                  SyntaxError *err) {
-  trace_state("param-list", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected parameter.");
@@ -710,7 +623,7 @@ static ASTNode *parse_param_list(Vector_Token *tokens, size_t *pos,
     if (comma == NULL || !is_comma(comma)) {
       break;
     }
-    advance(tokens, pos); // consume ','
+    advance(tokens, pos); // consome ','
 
     param = parse_param(tokens, pos, err);
     if (param == NULL) {
@@ -727,7 +640,6 @@ static ASTNode *parse_param_list(Vector_Token *tokens, size_t *pos,
 // param -> type_specifier ID | type_specifier ID '[' ']'
 static ASTNode *parse_param(Vector_Token *tokens, size_t *pos,
                             SyntaxError *err) {
-  trace_state("param", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected parameter.");
@@ -756,7 +668,7 @@ static ASTNode *parse_param(Vector_Token *tokens, size_t *pos,
 
   Token *lbracket = peek(tokens, *pos);
   if (lbracket != NULL && is_lbracket(lbracket)) {
-    advance(tokens, pos); // consume '['
+    advance(tokens, pos); // consome '['
 
     Token *rbracket = peek(tokens, *pos);
     if (rbracket == NULL || !is_rbracket(rbracket)) {
@@ -764,7 +676,7 @@ static ASTNode *parse_param(Vector_Token *tokens, size_t *pos,
       free(node);
       return NULL;
     }
-    advance(tokens, pos); // consume ']'
+    advance(tokens, pos); // consome ']'
 
     ASTNode *empty_brackets = malloc(sizeof(ASTNode));
     create_node(empty_brackets, EMPTY_SQR_BRACKETS_NODE, lbracket->line);
@@ -778,13 +690,12 @@ static ASTNode *parse_param(Vector_Token *tokens, size_t *pos,
 // compound_stmt -> '{' local_declarations statement_list '}'
 static ASTNode *parse_compound_stmt(Vector_Token *tokens, size_t *pos,
                                     SyntaxError *err) {
-  trace_state("compound", tokens, *pos);
   Token *lbrace = peek(tokens, *pos);
   if (lbrace == NULL || !is_lbrace(lbrace)) {
     set_error(err, lbrace, "Expected '{'.");
     return NULL;
   }
-  advance(tokens, pos); // consume '{'
+  advance(tokens, pos); // consome '{'
 
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, COMPOUND_STMT_NODE, lbrace->line);
@@ -811,16 +722,14 @@ static ASTNode *parse_compound_stmt(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume '}'
+  advance(tokens, pos); // consome '}'
 
   return node;
 }
 
 // local_declarations -> local_declarations var_declaration | empty
-// Left recursion eliminated: local_declarations -> {var_declaration}
 static ASTNode *parse_local_declarations(Vector_Token *tokens, size_t *pos,
                                          SyntaxError *err) {
-  trace_state("local-decls", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Unexpected end of input.");
@@ -878,7 +787,6 @@ static ASTNode *parse_local_declarations(Vector_Token *tokens, size_t *pos,
 // Left recursion eliminated: statement_list -> {statement}
 static ASTNode *parse_statement_list(Vector_Token *tokens, size_t *pos,
                                      SyntaxError *err) {
-  trace_state("stmt-list", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Unexpected end of input.");
@@ -910,7 +818,6 @@ static ASTNode *parse_statement_list(Vector_Token *tokens, size_t *pos,
 // iteration_stmt | return_stmt
 static ASTNode *parse_statement(Vector_Token *tokens, size_t *pos,
                                 SyntaxError *err) {
-  trace_state("stmt", tokens, *pos);
   Token *token = peek(tokens, *pos);
   if (token == NULL) {
     set_error(err, NULL, "Expected statement.");
@@ -934,7 +841,6 @@ static ASTNode *parse_statement(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos,
                                       SyntaxError *err) {
   Token *first = peek(tokens, *pos);
-  trace_state("expr-stmt", tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected expression statement.");
     return NULL;
@@ -944,7 +850,7 @@ static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos,
   create_node(node, EXPRESSION_STMT_NODE, first->line);
 
   if (is_semicolon(first)) {
-    advance(tokens, pos); // consume ';'
+    advance(tokens, pos); // consome ';'
     return node;
   }
 
@@ -962,7 +868,7 @@ static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ';'
+  advance(tokens, pos); // consome ';'
 
   return node;
 }
@@ -972,19 +878,18 @@ static ASTNode *parse_expression_stmt(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos,
                                      SyntaxError *err) {
   Token *if_token = peek(tokens, *pos);
-  trace_state("if-stmt", tokens, *pos);
   if (if_token == NULL || !is_keyword(if_token, "if")) {
     set_error(err, if_token, "Expected 'if'.");
     return NULL;
   }
-  advance(tokens, pos); // consume 'if'
+  advance(tokens, pos); // consome 'if'
 
   Token *lparen = peek(tokens, *pos);
   if (lparen == NULL || !is_lparen(lparen)) {
     set_error(err, lparen, "Expected '(' after 'if'.");
     return NULL;
   }
-  advance(tokens, pos); // consume '('
+  advance(tokens, pos); // consome '('
 
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, SELECTION_STMT_NODE, if_token->line);
@@ -1003,7 +908,7 @@ static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ')'
+  advance(tokens, pos); // consome ')'
 
   ASTNode *then_stmt = parse_statement(tokens, pos, err);
   if (then_stmt == NULL) {
@@ -1015,7 +920,7 @@ static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos,
 
   Token *else_token = peek(tokens, *pos);
   if (else_token != NULL && is_keyword(else_token, "else")) {
-    advance(tokens, pos); // consume 'else'
+    advance(tokens, pos); // consome 'else'
 
     ASTNode *else_stmt = parse_statement(tokens, pos, err);
     if (else_stmt == NULL) {
@@ -1033,19 +938,18 @@ static ASTNode *parse_selection_stmt(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_iteration_stmt(Vector_Token *tokens, size_t *pos,
                                      SyntaxError *err) {
   Token *while_token = peek(tokens, *pos);
-  trace_state("while-stmt", tokens, *pos);
   if (while_token == NULL || !is_keyword(while_token, "while")) {
     set_error(err, while_token, "Expected 'while'.");
     return NULL;
   }
-  advance(tokens, pos); // consume 'while'
+  advance(tokens, pos); // consome 'while'
 
   Token *lparen = peek(tokens, *pos);
   if (lparen == NULL || !is_lparen(lparen)) {
     set_error(err, lparen, "Expected '(' after 'while'.");
     return NULL;
   }
-  advance(tokens, pos); // consume '('
+  advance(tokens, pos); // consome '('
 
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, ITERATION_STMT_NODE, while_token->line);
@@ -1064,7 +968,7 @@ static ASTNode *parse_iteration_stmt(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ')'
+  advance(tokens, pos); // consome ')'
 
   ASTNode *body = parse_statement(tokens, pos, err);
   if (body == NULL) {
@@ -1081,12 +985,11 @@ static ASTNode *parse_iteration_stmt(Vector_Token *tokens, size_t *pos,
 static ASTNode *parse_return_stmt(Vector_Token *tokens, size_t *pos,
                                   SyntaxError *err) {
   Token *return_token = peek(tokens, *pos);
-  trace_state("return-stmt", tokens, *pos);
   if (return_token == NULL || !is_keyword(return_token, "return")) {
     set_error(err, return_token, "Expected 'return'.");
     return NULL;
   }
-  advance(tokens, pos); // consume 'return'
+  advance(tokens, pos); // consome 'return'
 
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, RETURN_STMT_NODE, return_token->line);
@@ -1108,7 +1011,7 @@ static ASTNode *parse_return_stmt(Vector_Token *tokens, size_t *pos,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ';'
+  advance(tokens, pos); // consome ';'
 
   return node;
 }
@@ -1116,7 +1019,6 @@ static ASTNode *parse_return_stmt(Vector_Token *tokens, size_t *pos,
 // expression -> var '=' expression | simple_expression
 static ASTNode *parse_expression(Vector_Token *tokens, size_t *pos,
                                  SyntaxError *err) {
-  trace_state("expr", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected expression.");
@@ -1131,7 +1033,7 @@ static ASTNode *parse_expression(Vector_Token *tokens, size_t *pos,
     if (var != NULL) {
       Token *eq = peek(tokens, *pos);
       if (eq != NULL && is_special(eq, "=")) {
-        advance(tokens, pos); // consume '='
+        advance(tokens, pos); // consome '='
 
         ASTNode *node = malloc(sizeof(ASTNode));
         create_node(node, EXPRESSION_NODE, first->line);
@@ -1162,7 +1064,6 @@ static ASTNode *parse_expression(Vector_Token *tokens, size_t *pos,
 
 // var -> ID | ID '[' expression ']'
 static ASTNode *parse_var(Vector_Token *tokens, size_t *pos, SyntaxError *err) {
-  trace_state("var", tokens, *pos);
   Token *id_token = expect(tokens, pos, IDENTIFIER_TOKEN, err);
   if (id_token == NULL) {
     return NULL;
@@ -1177,7 +1078,7 @@ static ASTNode *parse_var(Vector_Token *tokens, size_t *pos, SyntaxError *err) {
 
   Token *lbracket = peek(tokens, *pos);
   if (lbracket != NULL && is_lbracket(lbracket)) {
-    advance(tokens, pos); // consume '['
+    advance(tokens, pos); // consome '['
 
     ASTNode *index_expr = parse_expression(tokens, pos, err);
     if (index_expr == NULL) {
@@ -1193,7 +1094,7 @@ static ASTNode *parse_var(Vector_Token *tokens, size_t *pos, SyntaxError *err) {
       free(node);
       return NULL;
     }
-    advance(tokens, pos); // consume ']'
+    advance(tokens, pos); // consome ']'
   }
 
   return node;
@@ -1203,7 +1104,6 @@ static ASTNode *parse_var(Vector_Token *tokens, size_t *pos, SyntaxError *err) {
 // additive_expression
 static ASTNode *parse_simple_expression(Vector_Token *tokens, size_t *pos,
                                         SyntaxError *err) {
-  trace_state("simple-expr", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected expression.");
@@ -1219,7 +1119,7 @@ static ASTNode *parse_simple_expression(Vector_Token *tokens, size_t *pos,
   if (op != NULL && op->kind == SPECIAL_TOKEN &&
       (is_special(op, "<=") || is_special(op, "<") || is_special(op, ">") ||
        is_special(op, ">=") || is_special(op, "==") || is_special(op, "!="))) {
-    advance(tokens, pos); // consume relop
+    advance(tokens, pos); // consome relop
 
     ASTNode *node = malloc(sizeof(ASTNode));
     create_node(node, SIMPLE_EXPRESSION_NODE, first->line);
@@ -1245,10 +1145,8 @@ static ASTNode *parse_simple_expression(Vector_Token *tokens, size_t *pos,
 }
 
 // additive_expression -> additive_expression addop term | term
-// Left recursion eliminated: additive_expression -> term {addop term}
 static ASTNode *parse_additive_expression(Vector_Token *tokens, size_t *pos,
                                           SyntaxError *err) {
-  trace_state("add-expr", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected term.");
@@ -1265,7 +1163,7 @@ static ASTNode *parse_additive_expression(Vector_Token *tokens, size_t *pos,
     if (op == NULL || !is_special(op, "+") && !is_special(op, "-")) {
       break;
     }
-    advance(tokens, pos); // consume addop
+    advance(tokens, pos); // consome addop
 
     ASTNode *node = malloc(sizeof(ASTNode));
     create_node(node, ADDITIVE_EXPRESSION_NODE, first->line);
@@ -1291,10 +1189,8 @@ static ASTNode *parse_additive_expression(Vector_Token *tokens, size_t *pos,
 }
 
 // term -> term mulop factor | factor
-// Left recursion eliminated: term -> factor {mulop factor}
 static ASTNode *parse_term(Vector_Token *tokens, size_t *pos,
                            SyntaxError *err) {
-  trace_state("term", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected factor.");
@@ -1311,7 +1207,7 @@ static ASTNode *parse_term(Vector_Token *tokens, size_t *pos,
     if (op == NULL || !is_special(op, "*") && !is_special(op, "/")) {
       break;
     }
-    advance(tokens, pos); // consume mulop
+    advance(tokens, pos); // consome mulop
 
     ASTNode *node = malloc(sizeof(ASTNode));
     create_node(node, TERM_NODE, first->line);
@@ -1339,7 +1235,6 @@ static ASTNode *parse_term(Vector_Token *tokens, size_t *pos,
 // factor -> '(' expression ')' | var | call | NUM
 static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
                              SyntaxError *err) {
-  trace_state("factor", tokens, *pos);
   Token *token = peek(tokens, *pos);
   if (token == NULL) {
     set_error(err, NULL, "Expected factor.");
@@ -1350,7 +1245,7 @@ static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
   create_node(node, FACTOR_NODE, token->line);
 
   if (is_lparen(token)) {
-    advance(tokens, pos); // consume '('
+    advance(tokens, pos); // consome '('
 
     ASTNode *expr = parse_expression(tokens, pos, err);
     if (expr == NULL) {
@@ -1366,7 +1261,7 @@ static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
       free(node);
       return NULL;
     }
-    advance(tokens, pos); // consume ')'
+    advance(tokens, pos); // consome ')'
 
     return node;
   } else if (token->kind == NUMBER_TOKEN) {
@@ -1378,7 +1273,7 @@ static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
   } else if (token->kind == IDENTIFIER_TOKEN) {
     Token *next = peek(tokens, *pos + 1);
     if (next != NULL && is_lparen(next)) {
-      advance(tokens, pos); // consume ID
+      advance(tokens, pos); // consome ID
       ASTNode *call = parse_call(tokens, pos, token, err);
       if (call == NULL) {
         free(node);
@@ -1407,7 +1302,6 @@ static ASTNode *parse_factor(Vector_Token *tokens, size_t *pos,
 // call -> ID '(' args ')'
 static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, Token *id_token,
                            SyntaxError *err) {
-  trace_state("call", tokens, *pos);
   ASTNode *node = malloc(sizeof(ASTNode));
   create_node(node, CALL_NODE, id_token->line);
 
@@ -1421,7 +1315,7 @@ static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, Token *id_token,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume '('
+  advance(tokens, pos); // consome '('
 
   ASTNode *args = parse_args(tokens, pos, err);
   if (args == NULL) {
@@ -1437,7 +1331,7 @@ static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, Token *id_token,
     free(node);
     return NULL;
   }
-  advance(tokens, pos); // consume ')'
+  advance(tokens, pos); // consome ')'
 
   return node;
 }
@@ -1445,7 +1339,6 @@ static ASTNode *parse_call(Vector_Token *tokens, size_t *pos, Token *id_token,
 // args -> arg_list | empty
 static ASTNode *parse_args(Vector_Token *tokens, size_t *pos,
                            SyntaxError *err) {
-  trace_state("args", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected arguments or ')'.");
@@ -1475,7 +1368,6 @@ static ASTNode *parse_args(Vector_Token *tokens, size_t *pos,
 // Left recursion eliminated: arg_list -> expression {',' expression}
 static ASTNode *parse_arg_list(Vector_Token *tokens, size_t *pos,
                                SyntaxError *err) {
-  trace_state("arg-list", tokens, *pos);
   Token *first = peek(tokens, *pos);
   if (first == NULL) {
     set_error(err, NULL, "Expected expression.");
@@ -1498,7 +1390,7 @@ static ASTNode *parse_arg_list(Vector_Token *tokens, size_t *pos,
     if (comma == NULL || !is_comma(comma)) {
       break;
     }
-    advance(tokens, pos); // consume ','
+    advance(tokens, pos); // consome ','
 
     expr = parse_expression(tokens, pos, err);
     if (expr == NULL) {
@@ -1516,10 +1408,9 @@ static ASTNode *parse_arg_list(Vector_Token *tokens, size_t *pos,
 
 #pragma region ANALISADOR_SINTATICO
 
-// Main entry point for syntactic analysis
+// Função principal para gerar a AST a partir dos tokens
 bool generateAST(Vector_Token tokens, ASTNode *out, SyntaxError *err) {
-  // Filter out comment tokens so parser can ignore them while lexer keeps
-  // emitting
+  // Filtra comentários para evitar interferência na análise sintática
   Vector_Token filtered = vecCreateEmpty_Token();
   for (size_t i = 0; i < vecLength_Token(&tokens); i++) {
     Token *t = vecIndex_Token(&tokens, i);
@@ -1527,21 +1418,21 @@ bool generateAST(Vector_Token tokens, ASTNode *out, SyntaxError *err) {
       continue;
     }
     Token copy = *t;
-    copy.content = vecDuplicate_char(&t->content); // deep copy text buffer
+    copy.content = vecDuplicate_char(&t->content);
     vecPushRight_Token(&filtered, copy);
   }
 
   size_t pos = 0;
-  ASTNode *root = parse_program(&filtered, &pos, err);
+  ASTNode *root = parse_program(&filtered, &pos, err); // Começa a análise aqui
   if (root == NULL) {
-    vecFree_Token(&filtered);
+    vecFree_Token(&filtered); // Se houver erro, libera memória e retorna falso
     return false;
   }
 
-  // Check if all tokens were consumed
+  // Verifica que não há tokens restantes após o programa.
   Token *remaining = peek(&filtered, pos);
   if (remaining != NULL) {
-    set_error(err, remaining, "Unexpected tokens after end of program.");
+    set_error(err, remaining, "Tokens inesperados após o fim do programa.");
     free(root);
     vecFree_Token(&filtered);
     return false;
@@ -1550,7 +1441,7 @@ bool generateAST(Vector_Token tokens, ASTNode *out, SyntaxError *err) {
   *out = *root;
   free(root);
   vecFree_Token(&filtered);
-  return true;
+  return true; // Análise retorna verdadeira se não houver erros.
 }
 
 #pragma endregion
