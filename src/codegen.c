@@ -1,6 +1,7 @@
 #include "codegen.h"
 #include "char_vector.h"
 #include "semantic.h"
+#include "stringify.h"
 #include "vector.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -18,8 +19,144 @@ DECLARE_VECTOR_TYPE(Register, Vector_char *, REGISTER_NAME_GETTER,
 #define DIFF(x, y) (x - y)
 DECLARE_VECTOR_TYPE(Codegen, Register *, CODEGEN_RESULT_GETTER, DIFF)
 
+DECLARE_STRINGIFY_FUNCTION(InstructionOperator, iop) {
+  switch (iop) {
+  case ADD_IOP:
+    STRINGIFY_PUT("+");
+    break;
+  case SUB_IOP:
+    STRINGIFY_PUT("-");
+    break;
+  case MUL_IOP:
+    STRINGIFY_PUT("*");
+    break;
+  case DIV_IOP:
+    STRINGIFY_PUT("/");
+    break;
+  case REM_IOP:
+    STRINGIFY_PUT("%");
+    break;
+  case GT_IOP:
+    STRINGIFY_PUT(">");
+    break;
+  case GTE_IOP:
+    STRINGIFY_PUT(">=");
+    break;
+  case LT_IOP:
+    STRINGIFY_PUT("<");
+    break;
+  case LTE_IOP:
+    STRINGIFY_PUT(">=");
+    break;
+  case EQ_IOP:
+    STRINGIFY_PUT("==");
+    break;
+  case NE_IOP:
+    STRINGIFY_PUT("!=");
+    break;
+  case NO_OPERATOR_IOP:
+    STRINGIFY_PUT("NO_OPERATOR_IOP");
+    break;
+  }
+}
+
+DECLARE_STRINGIFY_FUNCTION(Instruction, ins) {
+  switch (ins.kind) {
+  case ARITH_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    STRINGIFY_PUT(" = ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    if (ins.op != NO_OPERATOR_IOP) {
+      STRINGIFY_PUT(" ");
+      STRINGIFY_PUT_VALUE(InstructionOperator, ins.op);
+      STRINGIFY_PUT(" ");
+      STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    }
+    break;
+  case LABEL_INSTRUCTION:
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    STRINGIFY_PUT(":");
+    break;
+  case JUMP_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("goto ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    break;
+  case IF_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("if ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    STRINGIFY_PUT(" goto ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    break;
+  case IF_NOT_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("if_not ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    STRINGIFY_PUT(" goto ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    break;
+  case RETURN_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("return");
+    break;
+  case ARRAY_LOAD_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    STRINGIFY_PUT(" = ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    STRINGIFY_PUT("[");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    STRINGIFY_PUT("]");
+    break;
+  case ARRAY_STORE_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    STRINGIFY_PUT("[");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    STRINGIFY_PUT("]");
+    STRINGIFY_PUT(" = ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.rightOperand->name);
+    break;
+  case IMMEDIATE_LOAD_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    STRINGIFY_PUT(" = ");
+    STRINGIFY_PUT_VALUE(int64_t, ins.immediate);
+    break;
+  case PARAM_PUSH_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("param_push ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    break;
+  case PARAM_POP_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("param_pop ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.destination->name);
+    break;
+  case CALL_INSTRUCTION:
+    STRINGIFY_PUT("  ");
+    STRINGIFY_PUT("call ");
+    STRINGIFY_PUT_VALUE(Vector_char, ins.leftOperand->name);
+    break;
+  }
+}
+
+DECLARE_STRINGIFY_FUNCTION(Vector_Instruction, vins) {
+  size_t n = vecLength_Instruction(&vins);
+  for (size_t i = 0; i < n; i++) {
+    STRINGIFY_PUT_VALUE(Instruction, *vecIndex_Instruction(&vins, i));
+    STRINGIFY_PUT("\n");
+  }
+}
+
+#define KIND_GETTER(X) (X.kind)
+DECLARE_VECTOR_TYPE(Instruction, InstructionKind, KIND_GETTER, DIFF)
+
 void codegenInit() {
-  globalRegisterPool.registers = vecCreateEmpty_Register();
+  globalRegisterPool.registers = NULL;
+  globalRegisterPool.temporaryRegisters = 0;
   literalAdd = charVecFromCArray("+");
   literalSub = charVecFromCArray("-");
   literalMul = charVecFromCArray("*");
@@ -70,21 +207,32 @@ InstructionOperator iOperatorFromString(Vector_char *text) {
   assert(0); // erro do analisador sintático
 }
 
+static Register *regLookupByName(Vector_char *name) {
+  Register *it = globalRegisterPool.registers;
+  while (it != NULL) {
+    if (charVecStrcmp(&it->name, name) == 0) {
+      return it;
+    }
+    it = it->next;
+  }
+  return NULL;
+}
+
 Register *getRegister(Vector_char *name) {
-  Register *existing = vecLookup_Register(&globalRegisterPool.registers, name);
+  Register *existing = regLookupByName(name);
   if (existing != NULL) {
     return existing;
   }
-  Register reg;
-  reg.name = vecDuplicate_char(name);
-  vecPushRight_Register(&globalRegisterPool.registers, reg);
+  Register *reg = malloc(sizeof(Register));
+  reg->name = vecDuplicate_char(name);
+  reg->next = globalRegisterPool.registers;
+  globalRegisterPool.registers = reg;
   return getRegister(name);
 }
 
 Register *getRegisterCStr(const char *name) {
   Vector_char v = charVecFromCArray(name);
   Register *reg = getRegister(&v);
-  vecFree_char(&v);
   return reg;
 }
 
@@ -95,7 +243,6 @@ Register *getTemporaryRegisterWithPrefix(char prefix) {
   vecPushLeft_char(&v, prefix);
   globalRegisterPool.temporaryRegisters++;
   Register *reg = getRegister(&v);
-  vecFree_char(&v);
   return reg;
 }
 
@@ -110,7 +257,6 @@ Register *getRegisterNamedAfter(Symbol *sym) {
   }
   vecExtend_char(&regName, &sym->name);
   Register *reg = getRegister(&regName);
-  vecFree_char(&regName);
   return reg;
 }
 
@@ -190,11 +336,22 @@ Instruction createParamPushInstruction(Register *src) {
   return i;
 }
 
-Instruction createCallInstruction(Register *dest, Register *fun) {
+Instruction createParamPopInstruction(Register *dst) {
+  Instruction i;
+  i.kind = PARAM_POP_INSTRUCTION;
+  i.op = NO_OPERATOR_IOP;
+  i.destination = dst;
+  i.immediate = 0;
+  i.leftOperand = NULL;
+  i.rightOperand = NULL;
+  return i;
+}
+
+Instruction createCallInstruction(Register *fun) {
   Instruction i;
   i.kind = CALL_INSTRUCTION;
   i.op = NO_OPERATOR_IOP;
-  i.destination = dest;
+  i.destination = NULL;
   i.immediate = 0;
   i.leftOperand = fun;
   i.rightOperand = NULL;
@@ -203,13 +360,7 @@ Instruction createCallInstruction(Register *dest, Register *fun) {
 
 Instruction createLabel(Register **rOut) {
   *rOut = getTemporaryRegisterWithPrefix('L');
-  Instruction i;
-  i.kind = LABEL_INSTRUCTION;
-  i.op = NO_OPERATOR_IOP;
-  i.immediate = 0;
-  i.leftOperand = i.rightOperand = NULL;
-  i.destination = *rOut;
-  return i;
+  return createLabelInstruction(*rOut);
 }
 
 Instruction createIfNotInstruction(Register *cond, Register *label) {
@@ -225,7 +376,7 @@ Instruction createIfNotInstruction(Register *cond, Register *label) {
 
 Instruction createIfInstruction(Register *cond, Register *label) {
   Instruction i;
-  i.kind = IF_NOT_INSTRUCTION;
+  i.kind = IF_INSTRUCTION;
   i.destination = NULL;
   i.leftOperand = cond;
   i.rightOperand = label;
@@ -241,5 +392,24 @@ Instruction createJumpInstruction(Register *label) {
   i.rightOperand = label;
   i.op = NO_OPERATOR_IOP;
   i.immediate = 0;
+  return i;
+}
+
+Instruction createReturnInstruction() {
+  Instruction i;
+  i.kind = RETURN_INSTRUCTION;
+  i.leftOperand = i.rightOperand = NULL;
+  i.op = NO_OPERATOR_IOP;
+  i.immediate = 0;
+  return i;
+}
+
+Instruction createLabelInstruction(Register *labelReg) {
+  Instruction i;
+  i.kind = LABEL_INSTRUCTION;
+  i.op = NO_OPERATOR_IOP;
+  i.immediate = 0;
+  i.leftOperand = i.rightOperand = NULL;
+  i.destination = labelReg;
   return i;
 }

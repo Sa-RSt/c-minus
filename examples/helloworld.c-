@@ -2,16 +2,22 @@ int amigo;
 int idade;
 /* olá amogo */
 
+int somar(int x, int y) {
+  return x + y;
+}
+
 void main(void) {
   amigo = 43;
   idade = input();
   if (amigo < 69) {
-      output(amigo);
-    } else {
-        output(33333);
-      }
+    output(amigo);
+  } else {
+      output(33333);
+  }
   if (idade >= 18) {
       output(18);
-    }
+      amigo = amigo + 1;
+  }
+  output(somar(amigo, idade));
 }
 

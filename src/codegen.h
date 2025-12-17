@@ -1,6 +1,7 @@
 #pragma once
 #include "char_vector.h"
 #include "semantic.h"
+#include "stringify.h"
 #include "vector.h"
 
 typedef enum InstructionKind {
@@ -9,9 +10,6 @@ typedef enum InstructionKind {
   JUMP_INSTRUCTION,
   IF_INSTRUCTION,
   IF_NOT_INSTRUCTION,
-  READ_INSTRUCTION,
-  WRITE_INSTRUCTION,
-  ENTRY_INSTRUCTION,
   RETURN_INSTRUCTION,
   ARRAY_STORE_INSTRUCTION,
   ARRAY_LOAD_INSTRUCTION,
@@ -37,15 +35,17 @@ typedef enum InstructionOperator {
 } InstructionOperator;
 
 InstructionOperator iOperatorFromString(Vector_char *);
+DECLARE_STRINGIFY_FUNCTION(InstructionOperator, iop);
 
 typedef struct Register {
   Vector_char name;
+  struct Register *next;
 } Register;
 
 HEADER_VECTOR_TYPE(Register, Vector_char *)
 
 typedef struct RegisterPool {
-  Vector_Register registers;
+  Register *registers;
   uint32_t temporaryRegisters;
 } RegisterPool;
 
@@ -58,7 +58,10 @@ typedef struct Instruction {
   int64_t immediate;
 } Instruction;
 
+DECLARE_STRINGIFY_FUNCTION(Instruction, ins);
+
 HEADER_VECTOR_TYPE(Instruction, InstructionKind)
+DECLARE_STRINGIFY_FUNCTION(Vector_Instruction, vins);
 
 typedef struct Codegen {
   Vector_Instruction instructions;
@@ -97,12 +100,18 @@ Instruction createImmediateLoadInstruction(Register *dst, int64_t imm);
 
 Instruction createParamPushInstruction(Register *src);
 
-Instruction createCallInstruction(Register *dest, Register *fun);
+Instruction createParamPopInstruction(Register *src);
+
+Instruction createCallInstruction(Register *fun);
 
 Instruction createLabel(Register **rOut);
+
+Instruction createLabelInstruction(Register *labelReg);
 
 Instruction createIfNotInstruction(Register *cond, Register *label);
 
 Instruction createIfInstruction(Register *cond, Register *label);
 
 Instruction createJumpInstruction(Register *label);
+
+Instruction createReturnInstruction();
