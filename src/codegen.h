@@ -15,11 +15,17 @@ typedef enum InstructionKind {
 } InstructionKind;
 
 typedef enum InstructionOperator {
-  ADD_IOP = '+',
-  SUB_IOP = '-',
-  MUL_IOP = '*',
-  DIV_IOP = '/',
-  REM_IOP = '%'
+  ADD_IOP,
+  SUB_IOP,
+  MUL_IOP,
+  DIV_IOP,
+  REM_IOP,
+  GT_IOP,
+  GTE_IOP,
+  LT_IOP,
+  LTE_IOP,
+  EQ_IOP,
+  NE_IOP
 } InstructionOperator;
 
 typedef struct Register {

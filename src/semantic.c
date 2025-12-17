@@ -1,6 +1,7 @@
 #include "semantic.h"
 #include "ast_attribute_names.h"
 #include "char_vector.h"
+#include "codegen.h"
 #include "error.h"
 #include "stringify.h"
 #include "syntactic.h"

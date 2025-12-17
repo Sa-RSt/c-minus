@@ -4,6 +4,9 @@
 #include <stdlib.h>
 
 #define REGISTER_NAME_GETTER(x) (&x.name)
+
+RegisterPool globalRegisterPool;
+
 DECLARE_VECTOR_TYPE(Register, Vector_char *, REGISTER_NAME_GETTER,
                     charVecStrcmp)
 
@@ -22,6 +25,15 @@ Register *getRegister(Vector_char *name) {
 
 Register *getRegisterCStr(const char *name) {
   Vector_char v = charVecFromCArray(name);
+  Register *reg = getRegister(&v);
+  vecFree_char(&v);
+  return reg;
+}
+
+Register *getTemporaryRegister(Codegen *cg) {
+  Vector_char v = STRINGIFY_TO_CHAR_VEC(uint32_t, cg->temporaryRegisters);
+  vecPushLeft_char(&v, 't');
+  cg->temporaryRegisters++;
   Register *reg = getRegister(&v);
   vecFree_char(&v);
   return reg;
