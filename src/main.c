@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   }
   printASTTree(&ast, 0);
   Codegen cg = createCodegenObj();
-  Vector_Vector_Symbol st = vecCreateEmpty_Vector_Symbol();
+  Vector_Symbol st = vecCreateEmpty_Symbol();
   SemanticError semError;
   bool semRes = semanticize(&ast, &st, &semError, &cg);
   if (!semRes) {

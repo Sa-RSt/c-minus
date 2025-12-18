@@ -71,5 +71,5 @@ typedef struct SemanticError {
 
 HEADER_ERROR_TYPE_FUNCTIONS(SemanticError)
 
-bool semanticize(ASTNode *ast, Vector_Vector_Symbol *out_symbol_tables,
+bool semanticize(ASTNode *ast, Vector_Symbol *out_symbol_table,
                  SemanticError *err, void *outCode);

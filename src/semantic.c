@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+Vector_Symbol outputSymbolTable;
+
 DECLARE_STRINGIFY_FUNCTION(DataTypeKind, dtk) {
   switch (dtk) {
   case INT_ARRAY_TYPE:
@@ -212,6 +214,21 @@ static bool symTablePush(Vector_ScopeEntry *scope, Vector_Symbol *symTable,
   }
   vecPushRight_Vector_char(&last->symbolNames, vecDuplicate_char(&sym->name));
   vecPushRight_Symbol(symTable, *sym);
+
+  // update the one that's going to the output
+  // first, check if it's already there
+  bool exists = false;
+  for (size_t i = 0; i < vecLength_Symbol(&outputSymbolTable); i++) {
+    Symbol *element = vecIndex_Symbol(&outputSymbolTable, i);
+    if (charVecStrcmp(&element->name, &sym->name) == 0 &&
+        scopeEquals(&element->scope, scope)) {
+      exists = true;
+      break;
+    }
+  }
+  if (!exists) {
+    vecPushRight_Symbol(&outputSymbolTable, *sym);
+  }
   return true;
 }
 
@@ -1210,11 +1227,12 @@ static bool semanticizeDeclarationList(ASTNode *ast, Vector_Symbol *symTable,
   return true;
 }
 
-bool semanticize(ASTNode *ast, Vector_Vector_Symbol *outSymbolTables,
+bool semanticize(ASTNode *ast, Vector_Symbol *outSymbolTable,
                  SemanticError *err, void *outCode) {
   assert(ast->kind == PROGRAM_NODE);
   codegenInit();
   ASTNode *childNode = getChild(ast);
+  outputSymbolTable = vecCreateEmpty_Symbol();
   Vector_Symbol programSymbolTable = vecCreateEmpty_Symbol();
   Vector_char strGlobal = charVecFromCArray("global");
   Vector_ScopeEntry scope = vecCreateEmpty_ScopeEntry();
@@ -1246,6 +1264,8 @@ bool semanticize(ASTNode *ast, Vector_Vector_Symbol *outSymbolTables,
   symTablePush(&scope, &programSymbolTable, &inputsym, err);
   symTablePush(&scope, &programSymbolTable, &outputsym, err);
 
-  return semanticizeDeclarationList(childNode, &programSymbolTable, &scope, err,
-                                    outCode);
+  bool res = semanticizeDeclarationList(childNode, &programSymbolTable, &scope,
+                                        err, outCode);
+  *outSymbolTable = outputSymbolTable;
+  return res;
 }
