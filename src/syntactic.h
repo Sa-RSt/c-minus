@@ -96,7 +96,7 @@ typedef struct Attribute {
 
 typedef struct SyntaxError {
   ERROR_TYPE_FIELDS
-  ASTNode node;
+  uint32_t sourceLine;
 } SyntaxError;
 
 HEADER_ERROR_TYPE_FUNCTIONS(SyntaxError)

@@ -270,6 +270,7 @@ Codegen createCodegenObj() {
 Instruction createArithmeticInstruction(Register *dst, Register *lhs,
                                         InstructionOperator op, Register *rhs) {
   Instruction i;
+  assert(dst != NULL);
   i.destination = dst;
   i.leftOperand = lhs;
   i.op = op;
@@ -286,6 +287,7 @@ Instruction createMoveInstruction(Register *dst, Register *src) {
   i.leftOperand = src;
   i.rightOperand = NULL;
   i.destination = dst;
+  assert(dst != NULL);
   i.immediate = 0;
   return i;
 }

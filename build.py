@@ -24,7 +24,7 @@ GCC_OPTIONS = [
     "-Wswitch-enum",
     "-Wswitch-default",
     "-Wconversion",
-    "-O2",
+    "-O0",
     "-lfl",
     "-ggdb",
 ]

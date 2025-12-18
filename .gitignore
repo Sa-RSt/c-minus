@@ -3,3 +3,5 @@ src/lex.yy.c
 trace.log
 .vscode
 output.asm
+*.zip
+compile_alt/

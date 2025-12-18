@@ -99,6 +99,7 @@ DECLARE_STRINGIFY_FUNCTION(Symbol, sym) {
   } else if (sym.kind == FUN_SYMBOL) {
     STRINGIFY_PUT(" retornando ");
     STRINGIFY_PUT_VALUE(DataTypeKind, sym.spec.fun.returnDataTypeKind);
+    STRINGIFY_PUT(":");
   }
   STRINGIFY_PUT(" ");
   STRINGIFY_PUT_VALUE(Vector_char, sym.name);
@@ -113,8 +114,19 @@ DECLARE_VECTOR_TYPE(Vector_Symbol, voidp, NULL_GETTER, NULL_COMPARER)
 
 DECLARE_ERROR_TYPE_FUNCTIONS(SemanticError)
 
+char *blockScopeName;
+uint32_t blockScopeIncrement = 0;
+
+Vector_ASTNode
+    emergencyEmptyVector; // change NULLs into empty vectors to avoid segfaults
+
 static Vector_ASTNode *getChildren(ASTNode *parent) {
-  return &parent->children;
+  Vector_ASTNode *vec = &parent->children;
+  if (vec == NULL) {
+    emergencyEmptyVector = vecCreateEmpty_ASTNode();
+    return &emergencyEmptyVector;
+  }
+  return vec;
 }
 
 static ASTNode *getChild(ASTNode *parent) {
@@ -263,6 +275,7 @@ static bool requireIntTypeSpec(ASTNode *typeSpec, SemanticError *err) {
 }
 
 static bool isExpressionType(ASTNodeKind);
+static bool isStatementType(ASTNodeKind);
 
 static ASTNode *findExpressionNodeLeft(Vector_ASTNode *children) {
   size_t len = vecLength_ASTNode(children);
@@ -283,6 +296,27 @@ static ASTNode *findExpressionNodeRight(Vector_ASTNode *children) {
   }
   return NULL;
 }
+
+static ASTNode *findStatementNodeLeft(Vector_ASTNode *children) {
+  size_t len = vecLength_ASTNode(children);
+  for (size_t i = 0; i < len; i++) {
+    if (isStatementType(vecIndex_ASTNode(children, i)->kind)) {
+      return vecIndex_ASTNode(children, i);
+    }
+  }
+  return NULL;
+}
+
+static ASTNode *findStatementNodeRight(Vector_ASTNode *children) {
+  size_t len = vecLength_ASTNode(children);
+  for (int64_t i = (int64_t)len - 1; i >= 0; i--) {
+    if (isStatementType(vecIndex_ASTNode(children, (size_t)i)->kind)) {
+      return vecIndex_ASTNode(children, (size_t)i);
+    }
+  }
+  return NULL;
+}
+
 static bool semanticizeExpressionStatement(ASTNode *ast,
                                            Vector_Symbol *symTable,
                                            SemanticError *err,
@@ -301,9 +335,10 @@ static bool semanticizeExpression(ASTNode *ast, Vector_Symbol *symTable,
                                   SemanticError *err, Vector_ScopeEntry *scope,
                                   Codegen *outCg);
 
-static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
-                                    SemanticError *err,
-                                    Vector_ScopeEntry *scope, Codegen *outCg);
+static bool semanticizeCompoundStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                         SemanticError *err,
+                                         Vector_ScopeEntry *scope,
+                                         Codegen *outCg);
 
 static bool semanticizeLocalDeclarations(ASTNode *ast, Vector_Symbol *symTable,
                                          SemanticError *err,
@@ -353,9 +388,12 @@ static bool semanticizeSelectionStatement(ASTNode *ast, Vector_Symbol *symTable,
                                           Vector_ScopeEntry *scope,
                                           Codegen *cgOut) {
   Vector_ASTNode *children = getChildren(ast);
+  // EXPRESSION_STMT pode gerar ambiguidade
+  Vector_ASTNode childrenFilter = vecDuplicate_ASTNode(children);
   ASTNode *conditionExpression = findExpressionNodeLeft(children);
-  ASTNode *statementIf = vecSearchLeft_ASTNode(children, COMPOUND_STMT_NODE);
-  ASTNode *statementElse = vecSearchRight_ASTNode(children, COMPOUND_STMT_NODE);
+  vecRemoveLeft_ASTNode(&childrenFilter, conditionExpression->kind, NULL);
+  ASTNode *statementIf = findStatementNodeLeft(&childrenFilter);
+  ASTNode *statementElse = findStatementNodeRight(&childrenFilter);
   assert(statementIf != NULL);
   if (statementIf == statementElse) {
     statementElse = NULL;
@@ -383,8 +421,10 @@ static bool semanticizeSelectionStatement(ASTNode *ast, Vector_Symbol *symTable,
       &cgOut->instructions,
       createIfNotInstruction(conditionCg.result, ifNotLabelReg));
   Codegen statementIfCg = createCodegenObj();
+  blockScopeName = "if";
   if (!semanticizeStatement(statementIf, symTable, err, scope, &statementIfCg))
     return false;
+  blockScopeName = NULL;
   fakeVecExtend_Instruction(&cgOut->instructions, &statementIfCg.instructions);
   if (statementElse != NULL) {
     fakeVecPushRight_Instruction(&cgOut->instructions,
@@ -392,10 +432,12 @@ static bool semanticizeSelectionStatement(ASTNode *ast, Vector_Symbol *symTable,
   }
   fakeVecPushRight_Instruction(&cgOut->instructions, ifNotLabelInst);
   if (statementElse != NULL) {
+    blockScopeName = "else";
     Codegen statementElseCg = createCodegenObj();
     if (!semanticizeStatement(statementElse, symTable, err, scope,
                               &statementElseCg))
       return false;
+    blockScopeName = NULL;
     fakeVecExtend_Instruction(&cgOut->instructions,
                               &statementElseCg.instructions);
     fakeVecPushRight_Instruction(&cgOut->instructions, endifLabelInst);
@@ -436,8 +478,6 @@ static bool semanticizeCall(ASTNode *ast, Vector_Symbol *symTable,
                             SemanticError *err, Vector_ScopeEntry *scope,
                             Codegen *outCg) {
   assert(ast->kind == CALL_NODE);
-  Vector_char literalInput = charVecFromCArray("input");
-  Vector_char literalOutput = charVecFromCArray("output");
   Vector_ASTNode *children = getChildren(ast);
   ASTNode *identifier = vecKey_ASTNode(children, ID_NODE);
   ASTNode *args = vecKey_ASTNode(children, ARGS_NODE);
@@ -489,9 +529,10 @@ static bool semanticizeCall(ASTNode *ast, Vector_Symbol *symTable,
   }
   fakeVecPushRight_Instruction(
       &outCg->instructions, createCallInstruction(getRegisterNamedAfter(&sym)));
-  fakeVecPushRight_Instruction(
-      &outCg->instructions,
-      createMoveInstruction(resultStorer, getRegisterCStr("$ret")));
+  if (resultStorer != NULL)
+    fakeVecPushRight_Instruction(
+        &outCg->instructions,
+        createMoveInstruction(resultStorer, getRegisterCStr("$ret")));
   outCg->result = resultStorer;
   return true;
 }
@@ -577,11 +618,11 @@ static bool semanticizeTerm(ASTNode *ast, Vector_Symbol *symTable,
                             Codegen *outCg) {
   assert(ast->kind == TERM_NODE);
   Vector_ASTNode *children = getChildren(ast);
-  ASTNode *childTerm = vecLookup_ASTNode(children, TERM_NODE);
+  ASTNode *childTerm = findExpressionNodeLeft(children);
   ASTNode *mulop = vecLookup_ASTNode(children, MULOP_NODE);
-  ASTNode *factor = vecKey_ASTNode(children, FACTOR_NODE);
+  ASTNode *factor = findExpressionNodeRight(children);
   Codegen factorCg = createCodegenObj();
-  if (!semanticizeFactor(factor, symTable, err, scope, &factorCg))
+  if (!semanticizeExpression(factor, symTable, err, scope, &factorCg))
     return false;
   if (factorCg.resultType != INT_VALUE_TYPE) {
     setSemanticErrorPrefix(err, "esperava tipo int: ", &factor->content,
@@ -598,7 +639,7 @@ static bool semanticizeTerm(ASTNode *ast, Vector_Symbol *symTable,
   fakeVecPushRight_Instruction(
       &out.instructions, createMoveInstruction(factorStorer, factorCg.result));
   Codegen childCg = createCodegenObj();
-  if (!semanticizeTerm(childTerm, symTable, err, scope, &childCg))
+  if (!semanticizeExpression(childTerm, symTable, err, scope, &childCg))
     return false;
   if (childCg.resultType != INT_VALUE_TYPE) {
     setSemanticErrorPrefix(err, "esperava tipo int: ", &childTerm->content,
@@ -715,14 +756,18 @@ static bool isExpressionType(ASTNodeKind k) {
          k == EXPRESSION_STMT_NODE || k == EXPRESSION_NODE;
 }
 
+static bool isStatementType(ASTNodeKind k) {
+  return k == STATEMENT_NODE || k == COMPOUND_STMT_NODE ||
+         k == EXPRESSION_STMT_NODE || k == SELECTION_STMT_NODE ||
+         k == ITERATION_STMT_NODE || k == RETURN_STMT_NODE;
+}
+
 static bool semanticizeTheExpression(ASTNode *ast, Vector_Symbol *symTable,
                                      SemanticError *err,
                                      Vector_ScopeEntry *scope, Codegen *outCg) {
   assert(ast->kind == EXPRESSION_NODE);
   Vector_ASTNode *children = getChildren(ast);
   size_t childrenCount = vecLength_ASTNode(children);
-  ASTNode *simpleExpression =
-      vecLookup_ASTNode(children, SIMPLE_EXPRESSION_NODE);
   if (childrenCount > 1) {
     ASTNode *varNode = vecKey_ASTNode(children, VAR_NODE);
     Vector_ASTNode *varChildren = getChildren(varNode);
@@ -753,7 +798,7 @@ static bool semanticizeTheExpression(ASTNode *ast, Vector_Symbol *symTable,
                                &ast->content, expressionNode->line);
         return false;
       } else if (varIndexExpr != NULL) {
-        Codegen cgIndex = createCodegenObj();
+        cgIndex = createCodegenObj();
         if (!semanticizeExpression(varIndexExpr, symTable, err, scope,
                                    &cgIndex))
           return false;
@@ -831,8 +876,8 @@ static bool semanticizeIterationStatement(ASTNode *ast, Vector_Symbol *symTable,
                                           Codegen *cgOut) {
   assert(ast->kind == ITERATION_STMT_NODE);
   Vector_ASTNode *children = getChildren(ast);
-  ASTNode *conditionExpression = vecKey_ASTNode(children, EXPRESSION_NODE);
-  ASTNode *loopingStatement = vecKey_ASTNode(children, STATEMENT_NODE);
+  ASTNode *conditionExpression = findExpressionNodeLeft(children);
+  ASTNode *loopingStatement = findStatementNodeRight(children);
   Register *loopStartReg, *loopEndReg;
   Instruction loopStartLabel = createLabel(&loopStartReg);
   Instruction loopEndLabel = createLabel(&loopEndReg);
@@ -847,9 +892,11 @@ static bool semanticizeIterationStatement(ASTNode *ast, Vector_Symbol *symTable,
                            conditionExpression->line);
     return false;
   }
+  blockScopeName = "while";
   if (!semanticizeStatement(loopingStatement, symTable, err, scope,
                             &cgInsideLoop))
     return false;
+  blockScopeName = NULL;
   fakeVecPushRight_Instruction(&cgOut->instructions, loopStartLabel);
   fakeVecExtend_Instruction(&cgOut->instructions, &cgCondition.instructions);
   fakeVecPushRight_Instruction(
@@ -891,8 +938,6 @@ static bool semanticizeReturnStatement(ASTNode *ast, Vector_Symbol *symTable,
   vecPopRight_char(&symNameActual);
   vecPopRight_char(&symNameActual);
   Symbol funcSym;
-  STRINGIFY_DBG(Vector_Symbol, *symTable);
-  STRINGIFY_DBG(ScopeEntry, *functionScopeElement);
   assert(mustGetSymbol(symTable, &symNameActual, &funcSym, err, ast->line));
   if (expr == NULL && funcSym.spec.fun.returnDataTypeKind != VOID_TYPE) {
     setSemanticErrorLiteral(
@@ -906,20 +951,23 @@ static bool semanticizeReturnStatement(ASTNode *ast, Vector_Symbol *symTable,
         ast->line);
     return false;
   }
-  Codegen exprCg = createCodegenObj();
-  if (!semanticizeExpression(expr, symTable, err, scope, &exprCg))
-    return false;
-  if (exprCg.resultType != funcSym.spec.fun.returnDataTypeKind) {
-    Vector_char msgerr = STRINGIFY_TO_CHAR_VEC(DataTypeKind, exprCg.resultType);
-    setSemanticErrorPrefix(
-        err,
-        "return com tipo de dado diferente do retornado pela função: ", &msgerr,
-        ast->line);
-    return false;
+  if (expr != NULL) {
+    Codegen exprCg = createCodegenObj();
+    if (!semanticizeExpression(expr, symTable, err, scope, &exprCg))
+      return false;
+    if (exprCg.resultType != funcSym.spec.fun.returnDataTypeKind) {
+      Vector_char msgerr =
+          STRINGIFY_TO_CHAR_VEC(DataTypeKind, exprCg.resultType);
+      setSemanticErrorPrefix(
+          err, "return com tipo de dado diferente do retornado pela função: ",
+          &msgerr, ast->line);
+      return false;
+    }
+    *cgOut = createCodegenObj();
+    fakeVecPushRight_Instruction(
+        &cgOut->instructions,
+        createMoveInstruction(retRegister, exprCg.result));
   }
-  *cgOut = createCodegenObj();
-  fakeVecPushRight_Instruction(
-      &cgOut->instructions, createMoveInstruction(retRegister, exprCg.result));
   fakeVecPushRight_Instruction(&cgOut->instructions, createReturnInstruction());
   return true;
 }
@@ -934,6 +982,8 @@ static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
                                  SemanticError *err, Vector_ScopeEntry *scope,
                                  Codegen *cgOut) {
   switch (ast->kind) {
+  case STATEMENT_NODE:
+    return semanticizeStatement(ast, symTable, err, scope, cgOut);
   case EXPRESSION_STMT_NODE:
     return semanticizeExpressionStatement(ast, symTable, err, scope, cgOut);
   case SELECTION_STMT_NODE:
@@ -943,7 +993,7 @@ static bool semanticizeStatement(ASTNode *ast, Vector_Symbol *symTable,
   case RETURN_STMT_NODE:
     return semanticizeReturnStatement(ast, symTable, err, scope, cgOut);
   case COMPOUND_STMT_NODE:
-    return semanticizeCompoundStmt(ast, symTable, err, scope, cgOut);
+    return semanticizeCompoundStatement(ast, symTable, err, scope, cgOut);
   default:
     assert(0); // erro do analisador sintático
   }
@@ -994,16 +1044,26 @@ static bool semanticizeStatementList(ASTNode *ast, Vector_Symbol *symTable,
   }
 }
 
-static bool semanticizeCompoundStmt(ASTNode *ast, Vector_Symbol *symTable,
-                                    SemanticError *err,
-                                    Vector_ScopeEntry *scope, Codegen *cgOut) {
+static bool semanticizeCompoundStatement(ASTNode *ast, Vector_Symbol *symTable,
+                                         SemanticError *err,
+                                         Vector_ScopeEntry *scope,
+                                         Codegen *cgOut) {
   assert(ast->kind == COMPOUND_STMT_NODE);
   Vector_ASTNode *children = getChildren(ast);
   assert(children->collection != NULL);
   ASTNode *localDeclarations =
       vecKey_ASTNode(children, LOCAL_DECLARATIONS_NODE);
   ASTNode *statementList = vecKey_ASTNode(children, STATEMENT_LIST_NODE);
-  Vector_char scopeName = charVecFromCArray("#block");
+  Vector_char scopeNameInc =
+      STRINGIFY_TO_CHAR_VEC(uint32_t, blockScopeIncrement);
+  Vector_char scopeName;
+  if (blockScopeName != NULL) {
+    scopeName = charVecFromCArray(blockScopeName);
+  } else {
+    scopeName = charVecFromCArray("block");
+  }
+  vecExtend_char(&scopeName, &scopeNameInc);
+  blockScopeIncrement++;
   scopePush(scope, &scopeName);
   if (!semanticizeLocalDeclarations(localDeclarations, symTable, err, scope))
     return false;
@@ -1109,7 +1169,7 @@ static bool semanticizeFunDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   }
 
   Codegen fnBody = createCodegenObj();
-  if (!semanticizeCompoundStmt(block, symTable, err, scope, &fnBody))
+  if (!semanticizeCompoundStatement(block, symTable, err, scope, &fnBody))
     return false;
   for (size_t i = 0; i < vecLength_Symbol(&parsedParams); i++) {
     vecPushLeft_Instruction(&fnBody.instructions,
@@ -1158,8 +1218,7 @@ static bool semanticizeVarDeclaration(ASTNode *ast, Vector_Symbol *symTable,
   sym.node = ast;
   sym.kind = VAR_SYMBOL;
   sym.isParameter = false;
-  symTablePush(scope, symTable, &sym, err);
-  return true;
+  return symTablePush(scope, symTable, &sym, err);
 }
 
 static bool semanticizeDeclaration(ASTNode *ast, Vector_Symbol *symTable,
@@ -1267,5 +1326,33 @@ bool semanticize(ASTNode *ast, Vector_Symbol *outSymbolTable,
   bool res = semanticizeDeclarationList(childNode, &programSymbolTable, &scope,
                                         err, outCode);
   *outSymbolTable = outputSymbolTable;
+  if (!res)
+    return false;
+  Vector_char literalMain = charVecFromCArray("main");
+  Symbol *mainFn = vecLookup_Symbol(&programSymbolTable, &literalMain);
+  if (mainFn == NULL) {
+    setSemanticErrorLiteral(
+        err,
+        "símbolo global 'main' não encontrado. gerando código de "
+        "3 endereços mesmo assim",
+        0);
+    return false;
+  } else if (mainFn->kind != FUN_SYMBOL) {
+    setSemanticErrorLiteral(
+        err,
+        "símbolo global 'main' foi declarado como variável, mas esperava uma "
+        "função. gerando código de "
+        "3 endereços mesmo assim",
+        0);
+    return false;
+  } else if (vecLength_Symbol(&mainFn->spec.fun.params) != 0) {
+    setSemanticErrorLiteral(
+        err,
+        "a função global 'main' (ponto de entrada) não deve aceitar parâmetros."
+        "gerando código de "
+        "3 endereços mesmo assim",
+        0);
+    return false;
+  }
   return res;
 }
