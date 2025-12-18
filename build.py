@@ -6,6 +6,9 @@ from glob import glob
 from contextlib import contextmanager
 from pathlib import Path
 
+CAMINHO_FLEX = "flex"
+CAMINHO_GCC = "gcc"
+
 GCC_OPTIONS = [
     "-Wall",
     "-Wextra",
@@ -54,7 +57,7 @@ def run_command(cmd):
 
 def fast_lex():
     with pushd(src_dir):
-        command = ["flex", "--yylineno", "lexer.l"]
+        command = [CAMINHO_FLEX, "--yylineno", "lexer.l"]
         run_command(command)
 
 
@@ -63,7 +66,9 @@ def gcc():
     output_binary_path = dist_dir / output_binary_filename
     source_files_pattern = str(src_dir).rstrip("/") + "/**.c"
     source_files = list(glob(source_files_pattern, recursive=True))
-    command = ["gcc"] + GCC_OPTIONS + source_files + ["-o", str(output_binary_path)]
+    command = (
+        [CAMINHO_GCC] + GCC_OPTIONS + source_files + ["-o", str(output_binary_path)]
+    )
     run_command(command)
 
 
